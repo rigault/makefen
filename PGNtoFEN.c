@@ -1,10 +1,15 @@
+/* Tradut un fichier nom au format PGN en deux fichier au format FEN */
+/* nom.b.fen pour les noirs (black) */
+/* nom.w.fen pour les blancs (white) */
+/* ./PGNtoFEN [-f] [-p] %s sourceFile */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
 #include <ctype.h>
 #define N 8
-#define NTRUNC 170
+#define NTRUNC 1000
 #define MAXTURN 10
 
 #define DEPART "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
@@ -35,8 +40,8 @@ struct sdep {
 typedef char TGAME [N][N];
 
 int charToInt (int c, int lang) { /* */
-   int signe = islower (c) ? 1 : -1;
    /* traduit la piece au format caractere... en nombre entier */
+   int signe = islower (c) ? 1 : -1;
    for (int i=0; i < sizeof (dico); i++)
       if (lang == FRENCH) {
          if (toupper (c) == dicoF [i]) return signe * i;
@@ -67,7 +72,7 @@ void printGame (TGAME jeu, int eval) { /* */
    printf ("%s\n", NORMAL);
 }
 
-void gameToFen (TGAME jeu, char *sFen, int couleur) { /* */
+void gameToFen (TGAME jeu, char *sFen, int color) { /* */
    /* Forsyth–Edwards Notation */
    /* le jeu est envoye sous la forme d'une chaine de caracteres au format FEN au navigateur */
    /* on revoie les roque White et Black */
@@ -92,7 +97,7 @@ void gameToFen (TGAME jeu, char *sFen, int couleur) { /* */
    }
    sFen [--i] = ' ';
    sFen [i] = '\0';
-   if (couleur == 1) strcat (sFen, " b ");
+   if (color == 1) strcat (sFen, " b ");
    else strcat (sFen, " w ");
    /*if (!castleW) strcat (sFen, "KQ");
    else strcat (sFen, "-");
@@ -129,31 +134,56 @@ void fenToGame (char *sFen, TGAME jeu) { /* */
    }
 }
 
-void deplace (TGAME jeu, struct sdep dep, int couleur) { /* */
-   /* modifie jeu avec le deplacement dep
-   */
-   int base = (couleur == -1) ? 0 : 7;
+bool move (TGAME jeu, struct sdep dep, int color) { /* */
+   /* modifie jeu avec le deplacement dep */
+   int base = (color == -1) ? 0 : 7;
+   int v;
    if (dep.petitRoque) {
       jeu [base][4] = VOID;
-      jeu [base][5] = ROOK * couleur;
-      jeu [base][6] = KING * couleur;
+      jeu [base][5] = ROOK * color;
+      jeu [base][6] = KING * color;
       jeu [base][7] = VOID;
-      return;
+      return true;
    }
    if (dep.grandRoque) {
       jeu [base][4] = VOID;
-      jeu [base][3] = ROOK * couleur;
-      jeu [base][2] = KING * couleur;
+      jeu [base][3] = ROOK * color;
+      jeu [base][2] = KING * color;
       jeu [base][0] = VOID;
-      return;
+      return true;
+   }
+   // verifications sommaires que le deplacement est correct
+   switch (abs (dep.piece)) {
+   case PAWN:
+      if (abs (dep.colArr - dep.colDeb) > 1) return false;
+      if (abs (dep.ligArr - dep.ligDeb) > 2) return false;
+   break;
+   case KNIGHT:
+      if (abs (dep.colArr-dep.colDeb) * abs (dep.ligArr-dep.ligDeb) != 2) return false;
+   break;
+   case BISHOP:
+      if (abs (dep.ligArr-dep.ligDeb) != abs (dep.colArr - dep.colDeb)) return false;
+   break;
+   case ROOK:
+      if (dep.colArr != dep.colDeb && dep.ligArr != dep.ligDeb) return false;
+   break;
+   case KING:
+      if (abs (dep.colArr-dep.colDeb) !=1 && (abs (dep.ligArr-dep.ligDeb) != 1)) return false;
+   break;
+   case QUEEN:
+      if ((abs (dep.ligArr-dep.ligDeb) != abs (dep.colArr - dep.colDeb)) &&
+       (dep.colArr != dep.colDeb) && (dep.ligArr != dep.ligDeb)) return false;
+   break;
+   default:;
    }
    jeu [dep.ligDeb][dep.colDeb]  = VOID;
    if ((dep.promotion != VOID) && (abs (dep.piece == PAWN))) 
       jeu [dep.ligArr][dep.colArr] = dep.piece * dep.promotion;
    else jeu [dep.ligArr][dep.colArr] = dep.piece;
+   return true;
 }
 
-bool automate (char *depAlg, struct sdep *dep, int couleur) { /* */
+bool automaton (char *depAlg, struct sdep *dep, int color) { /* */
    /* traduit la chaine decrivant un deplacement au format algebrique */
    /* en structure sDep decrivant le deplacement */
    int etat = 0;
@@ -163,7 +193,7 @@ bool automate (char *depAlg, struct sdep *dep, int couleur) { /* */
    char reste [20];
    strcpy (reste, depAlg);
    dep->colDeb = -1; dep->colArr = -1; dep->ligDeb = -1; dep->ligArr = -1;
-   dep->piece = PAWN * couleur;
+   dep->piece = PAWN * color;
    dep->petitRoque = false;
    dep->grandRoque = false;
    dep->promotion = VOID;
@@ -192,13 +222,13 @@ bool automate (char *depAlg, struct sdep *dep, int couleur) { /* */
       case '-': case 'x':
          if (etat <= 3) { etat = 4; dep->prise = car; break; }
       case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g': case 'h':
-      //printf ("automate col %c\n", car);
+      //printf ("automaton col %c\n", car);
          etat = (etat <= 1) ? 2 : 5;
          if (dep->colDeb == -1) dep->colDeb = car - 'a';
          else dep->colArr = car - 'a';
          break;
       case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8':
-      // printf ("automate lig %c\n", car);
+      // printf ("automaton lig %c\n", car);
          etat = (etat <= 1) ? 2 : 5;
          etat = (etat <= 1) ? 3 : 6;
          if (dep->ligDeb == -1) dep->ligDeb = car - '0' - 1;
@@ -208,8 +238,8 @@ bool automate (char *depAlg, struct sdep *dep, int couleur) { /* */
       case 'K': case 'P': case 'B': 
       default: 
          if (isupper (car)) {
-            if ((etat == 6) || (etat == 7)) { etat = 8; dep->promotion = couleur * abs (charToInt (car, lang)); } // pas de break : c'est voulu
-            if (etat == 0) { etat = 1; dep->piece = couleur*(abs(charToInt (car, lang)));  break; }
+            if ((etat == 6) || (etat == 7)) { etat = 8; dep->promotion = color * abs (charToInt (car, lang)); } // pas de break : c'est voulu
+            if (etat == 0) { etat = 1; dep->piece = color*(abs(charToInt (car, lang)));  break; }
          }
       }
    }
@@ -218,7 +248,7 @@ bool automate (char *depAlg, struct sdep *dep, int couleur) { /* */
    return (etat >= 6);
 }
 
-bool recherche (TGAME jeu, int piece, int *l1, int *c1, int *l2, int *c2) { /* */
+bool find (TGAME jeu, int piece, int *l1, int *c1, int *l2, int *c2) { /* */
    /* coordonnées de la piece ou des deux pieces identiques dont l'ID est passée en argument */
    /* renvoie vrai si au moins une piece trouvee */
    int l, c;
@@ -240,7 +270,7 @@ bool recherche (TGAME jeu, int piece, int *l1, int *c1, int *l2, int *c2) { /* *
    return trouve;
 }
 
-bool videLig (TGAME jeu, int l, int cx, int cy) { /* */
+bool dumpLine (TGAME jeu, int l, int cx, int cy) { /* */
    /* vrai si toutes les cases de la ligne l entre colonnes cx et cy sont vides
    */
    int i;
@@ -251,7 +281,7 @@ bool videLig (TGAME jeu, int l, int cx, int cy) { /* */
    return true;
 }
 
-bool videCol (TGAME jeu, int c, int lx, int ly) { /* */
+bool dumpColumn (TGAME jeu, int c, int lx, int ly) { /* */
    /* vrai si toutes les cases de la colonne c  entre ligne lx et ly sont vides
    */
    int i;
@@ -262,44 +292,43 @@ bool videCol (TGAME jeu, int c, int lx, int ly) { /* */
    return true;
 }
    
-void traiterPion (TGAME jeu, struct sdep *dep) { /* */
+void pawnProcess (TGAME jeu, struct sdep *dep) { /* */
    /*  complete la structure dep en ajoutant l'origine si implicite; Cas du pion
    */
    // printf ("TraiterPion: %d\n", dep->piece);
-   int couleur = dep->piece; //-1 white, 1: black
+   int color = dep->piece; //-1 white, 1: black
    if (dep->prise != 'x') {
-      if ((jeu [dep->ligArr + couleur][dep->colArr]) == dep->piece){
-         dep->ligDeb = dep->ligArr + couleur;
+      if ((jeu [dep->ligArr + color][dep->colArr]) == dep->piece){
+         dep->ligDeb = dep->ligArr + color;
       }
-      if ((jeu [dep->ligArr + 2 * couleur][dep->colArr]) == dep->piece){
-         dep->ligDeb = dep->ligArr + 2 * couleur;
+      if ((jeu [dep->ligArr + 2 * color][dep->colArr]) == dep->piece){
+         dep->ligDeb = dep->ligArr + 2 * color;
       }
       dep->colDeb = dep->colArr;
    }
    else { // prise
-      if ((dep->ligArr + couleur < N) && (dep->ligArr + couleur >= 0) && (dep->colArr-1< N) && (dep->ligArr-1 >= 0) && 
-      (jeu [dep->ligArr + couleur][dep->colArr-1] == dep->piece)) {
-         dep->ligDeb = dep->ligArr + couleur;
+      if ((dep->ligArr + color < N) && (dep->ligArr + color >= 0) && (dep->colArr-1< N) && (dep->ligArr-1 >= 0) && 
+      (jeu [dep->ligArr + color][dep->colArr-1] == dep->piece)) {
+         dep->ligDeb = dep->ligArr + color;
          if (dep->colDeb == -1) dep->colDeb = dep->colArr - 1;
       }
       else {
-         dep->ligDeb = dep->ligArr + couleur;
+         dep->ligDeb = dep->ligArr + color;
          if (dep->colDeb == -1) dep->colDeb = dep->colArr + 1;
       }
    }
 }
    
 void complete (TGAME jeu, struct sdep *dep) { /* */
-   /* complete la structure dep en ajoutant l'origine si implicite
-   */
+   /* complete la structure dep en ajoutant l'origine si implicite */
    int l1, c1, l2, c2;
    l2 = -1;
    if ((dep->colDeb != -1) && (dep->ligDeb != -1)) return; // deja remplis !
    if (abs (dep->piece) == PAWN) {
-      traiterPion (jeu, dep);
+      pawnProcess (jeu, dep);
       return;
    }
-   if (! recherche (jeu, dep->piece, &l1, &c1, &l2, &c2)) {
+   if (! find (jeu, dep->piece, &l1, &c1, &l2, &c2)) {
       fprintf (stderr, "Error: man %d unfound \n", dep->piece);
       exit (0);
    }
@@ -324,12 +353,12 @@ void complete (TGAME jeu, struct sdep *dep) { /* */
       dep->colDeb = c2;
       break;
    case ROOK:
-      if ((c1 == dep->colArr) && (videCol (jeu, c1, l1, dep->ligArr))) {
+      if ((c1 == dep->colArr) && (dumpColumn (jeu, c1, l1, dep->ligArr))) {
          dep->ligDeb = l1;
          dep->colDeb = c1;
          return;
       } 
-      if ((l1 == dep->ligArr) && (videLig (jeu, l1, c1, dep->colArr))) {
+      if ((l1 == dep->ligArr) && (dumpLine (jeu, l1, c1, dep->colArr))) {
          dep->ligDeb = l1;
          dep->colDeb = c1;
          return;
@@ -338,7 +367,7 @@ void complete (TGAME jeu, struct sdep *dep) { /* */
       dep->colDeb = c2;
       break;
    case KNIGHT:
-      // printf ("2 cavaliers de couleur %d peuvent \n", dep->piece);
+      // printf ("2 cavaliers de color %d peuvent \n", dep->piece);
       if (abs((c1 - dep->colArr) * (l1 - dep->ligArr)) == 2) {
          if (abs((c2 - dep->colArr) * (l2 - dep->ligArr)) == 2) { // les deux cavaliers pointent su l dest !
             if ((dep->colDeb == c1) || (dep->ligDeb == l1)) {
@@ -364,14 +393,13 @@ void complete (TGAME jeu, struct sdep *dep) { /* */
    }
 }
 
-bool synchroDebut (FILE *fe, char* sComment) { /* */
-   /* va a la premiere description de deplacement
-   */
+bool syncBegin (FILE *fe, char* sComment) { /* */
+   /* va a la premiere description de deplacement */
    char car1, car2;
    int i = 0;
    while (((car1 = fgetc (fe)) != EOF) && (car1 != '['));
    if (car1 == EOF) return false;
-   sComment [i++] = ((car1 == '\r') || (car1 == '\n')) ? ' ' : car1;
+   if ((car1 != '\r') || (car1 != '\n')) sComment [i++] = car1;
    while (true) {
       if (((car2 = fgetc (fe))) == EOF) return false; 
       if (car1 == '\n' && car2 == '1') {
@@ -403,37 +431,37 @@ bool isEnd (char *chDep) { /* */
    if (strncmp (chDep, "*", 1) == 0) return true;
 }
 
-void sequence (TGAME jeu, char *depAlg, int couleur, char *sComment) { /* */
+bool sequence (TGAME jeu, char *depAlg, int color, char *sComment) { /* */
    struct sdep dep;
    char sFEN [MAXLIG];
    char line [MAXLIG];
-   if (! automate (depAlg, &dep, couleur)) {
-      fprintf (stderr, "Error: automate in %s\n", depAlg);
+   if (! automaton (depAlg, &dep, color)) {
+      fprintf (stderr, "Error: automaton in %s\n", depAlg);
       exit (0);
    }
    complete (jeu, &dep);
    sprintDep (dep, depAlg);
-   gameToFen (jeu, sFEN, couleur);
+   gameToFen (jeu, sFEN, color);
    sprintf (line, "%s;%s; %s;\n", sFEN, depAlg, sComment);
    line [NTRUNC] = '\0';
-   if (couleur == -1) fprintf (fsw, "%s\n", line);
+   if (color == -1) fprintf (fsw, "%s\n", line);
    else  fprintf (fsb, "%s\n", line);
-   deplace (jeu, dep, couleur);
+   return move (jeu, dep, color);
 }
 
-void test (TGAME jeu, int couleur) {
+void test (TGAME jeu, int color) {
    char chDep [MAXLIG];
    struct sdep dep;
    fenToGame (DEPART, jeu);
    strcpy (chDep, "Nf3");
-   automate (chDep, &dep, -1);
+   automaton (chDep, &dep, -1);
    printf ("%d\n", dep.ligArr);
    sprintDep (dep, chDep);
    printf ("chDep auto : %s\n", chDep);
    complete (jeu, &dep);
    sprintDep (dep, chDep);
    printf ("chDep Complet: %s\n", chDep);
-   deplace (jeu, dep, couleur);
+   move (jeu, dep, color);
    printGame (jeu, 0);
 }
 
@@ -444,7 +472,7 @@ void test2 () {
    fenToGame (DEPART, jeu);
    gameToFen (jeu, sFEN, 1);
    printf ("%s\n", sFEN);
-   if (recherche (jeu, -ROOK, &l1, &c1, &l2, &c2))
+   if (find (jeu, -ROOK, &l1, &c1, &l2, &c2))
       printf ("trouve %d %d %d %d\n", l1, c1, l2, c2);
    else printf ("non trouve \n");
 }
@@ -459,14 +487,10 @@ void main (int argc, char *argv []) {
    char depAlg2 [20];
    bool play = false;
    FILE *fe; 
-   int couleur = -1; // 1 : black, -1: white
+   int color = -1; // 1 : black, -1: white
    
    if (argc < 2) { 
-      fprintf (stderr, "Usage: [-f] [-csv] %s <sourceFile> [destFile]\n", argv [0]);
-      printf ("\ntest2\n");
-      test2 ();
-      printf ("\ntest\n");
-      test (jeu, couleur);
+      fprintf (stderr, "Usage: [-f] [-p] %s <sourceFile> [destFile]\n", argv [0]);
       return;
    }
    lang = ENGLISH; 
@@ -501,13 +525,13 @@ void main (int argc, char *argv []) {
       fenToGame (DEPART, jeu);
       nGame += 1;
       nTour = 0;
-      if (! synchroDebut (fe, game)) {
-         fprintf (stderr, "Error: synchroDebut in : %s\n", argv [indexSource]);
+      if (! syncBegin (fe, game)) {
+         fprintf (stderr, "Error: syncBegin in : %s\n", argv [indexSource]);
          return;
       }
 
       while (fscanf (fe, ". %s %s", depAlg1, depAlg2) != 2) {
-         if (! synchroDebut (fe, game)) {
+         if (! syncBegin (fe, game)) {
             return;
          }
       }
@@ -519,9 +543,9 @@ void main (int argc, char *argv []) {
          sprintf (sComment, "%s/%d/%d %s", argv [indexSource], nGame, nTour, game);
          for (int i = 0; sComment [i]; i++) 
             if (sComment [i] == '"') sComment [i] = '\'';
-         sequence (jeu, depAlg1, couleur, sComment);
+         if (! sequence (jeu, depAlg1, color, sComment)) break;
          if ((strlen (depAlg2) != 0) && !(isEnd (depAlg2))) 
-            sequence (jeu, depAlg2, -couleur, sComment);
+            sequence (jeu, depAlg2, -color, sComment);
          if (play) printGame (jeu, 0);
       } while (nTour < MAXTURN && fscanf (fe, "%d.%s %s", &n, depAlg1, depAlg2) == 3);
       printf ("Nb change: %d\n", nTour);
