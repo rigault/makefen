@@ -438,7 +438,7 @@ bool isEnd (char *chDep) { /* */
    if (strncmp (chDep, "1-0", 3) == 0) return true; // les blancs gagnent
    if (strncmp (chDep, "0-1", 3) == 0) return true; // les noirs gagnent
    if (strncmp (chDep, "*", 1) == 0) return true; // abandon/
-   return true;
+   return false;
 }
 
 bool sequence (TGAME jeu, char *depAlg, int color, char *sComment) { /* */
@@ -452,7 +452,7 @@ bool sequence (TGAME jeu, char *depAlg, int color, char *sComment) { /* */
    complete (jeu, &dep);
    sprintDep (dep, depAlg);
    gameToFen (jeu, sFEN, color);
-   sprintf (line, "%s;%s; %s\n", sFEN, depAlg, sComment);
+   sprintf (line, "%s;%s; %s", sFEN, depAlg, sComment);
    line [NTRUNC] = '\0';
    if (color == -1) fprintf (fsw, "%s\n", line);
    else  fprintf (fsb, "%s\n", line);
@@ -493,14 +493,13 @@ int main (int argc, char *argv []) {
    }
    lang = ENGLISH; 
    if (strcmp (argv [1], "-f") == 0) {
-      indexSource +=1;
+      indexSource +=1 ;
       printf ("In french\n");
       lang = FRENCH;
    }
 
    if (strcmp (argv [indexSource], "-p") == 0) {
-      indexSource +=1;
-      printf ("play\n");
+      indexSource += 1;
       play = true;
    }
 
@@ -508,7 +507,7 @@ int main (int argc, char *argv []) {
       fprintf (stderr, "File: %s not found\n", argv [indexSource]);
       exit (0);
    }
-   if (argc > indexSource +1) {
+   if (argc > indexSource + 1) {
       sprintf (fileName, "%s%s", argv [indexSource+1], ".b.fen"); // fichier black
       fsb = fopen (fileName, "w");
       sprintf (fileName, "%s%s", argv [indexSource+1], ".w.fen"); // fichier white
