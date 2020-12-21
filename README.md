@@ -1,5 +1,6 @@
 # makefen
 Produce FEN files based on PGN files. For chess games
+
 Fichier PGNtoFEN.c
 ------------------
 /* Traduit un fichier nom au format PGN en deux fichier au format FEN */
@@ -50,6 +51,12 @@ void complete (TGAME jeu, struct sdep *dep) { /* */
 bool syncBegin (FILE *fe, char* sComment) { /* */
    /* va a la premiere description de deplacement */
    /* enregistre dans sComment la section commentaires PGN */
+*sep) { /* */
+5
+​
+6
+​
+7
 
 void sprintDep (struct sdep dep, char *chDep) { /* */
    /* conversion struct en chaine algebrique complete */
