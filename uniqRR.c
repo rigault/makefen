@@ -1,6 +1,6 @@
 /* Elimine les lignes redondantes d'un fichier trie */
 /* deux lignes sont considerees equivalentes si le premier champ est egal */
-/* ce premier champ est delimite par le separateur SEPi */
+/* ce premier champ est delimite par le separateur SEP */
 /* ./uniqRR fileName */
 
 #include <stdio.h>

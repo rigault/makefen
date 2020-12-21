@@ -40,7 +40,7 @@ struct sdep {
 typedef char TGAME [N][N];
 
 int charToInt (int c, int lang) { /* */
-   /* traduit la piece au format caractere... en nombre entier */
+   /* traduit la piece au format caractere en nombre entier */
    int signe = islower (c) ? 1 : -1;
    for (unsigned int i = 0; i < sizeof (dico); i++)
       if (lang == FRENCH) {
@@ -53,7 +53,7 @@ int charToInt (int c, int lang) { /* */
 }
 
 void printGame (TGAME jeu, int eval) { /* */
-   /* imprime le jeu a la conole pour Debug */
+   /* imprime le jeu a la console pour option -p */
    int l, c;
    int v;
    bool normal = true;
@@ -74,8 +74,7 @@ void printGame (TGAME jeu, int eval) { /* */
 
 void gameToFen (TGAME jeu, char *sFen, int color) { /* */
    /* Forsyth–Edwards Notation */
-   /* le jeu est envoye sous la forme d'une chaine de caracteres au format FEN au navigateur */
-   /* on revoie les roque White et Black */
+   /* le jeu est envoye sous la forme d'une chaine de caracteres au format FEN */
    int l, c, n, v;
    int i = 0;
    //bool castleW = false;
@@ -107,7 +106,7 @@ void gameToFen (TGAME jeu, char *sFen, int color) { /* */
 
 void fenToGame (char *sFen, TGAME jeu) { /* */
    /* Forsyth–Edwards Notation */
-   /* le jeu est recu sous la forme d'une chaine de caracteres du navigateur */
+   /* le jeu est recu sous la forme d'une chaine de caracteres */
    /* fenToGame traduit cette chaine et renvoie l'objet jeu */
    int k, l = 7, c = 0;
    char car;
@@ -136,6 +135,7 @@ void fenToGame (char *sFen, TGAME jeu) { /* */
 
 bool move (TGAME jeu, struct sdep dep, int color) { /* */
    /* modifie jeu avec le deplacement dep */
+   /* renvoie faux si le deplacement est manifestement incorrect - controle coherece */
    int base = (color == -1) ? 0 : 7;
    if (dep.petitRoque) {
       jeu [base][4] = VOID;
@@ -184,7 +184,7 @@ bool move (TGAME jeu, struct sdep dep, int color) { /* */
 
 bool automaton (char *depAlg, struct sdep *dep, int color) { /* */
    /* traduit la chaine decrivant un deplacement au format algebrique */
-   /* en structure sDep decrivant le deplacement */
+   /* en structure sDep */
    int etat = 0;
    int sauveEtat = 0;
    int k = 0;
@@ -281,8 +281,7 @@ bool find (TGAME jeu, int piece, int *l1, int *c1, int *l2, int *c2) { /* */
 }
 
 bool dumpLine (TGAME jeu, int l, int cx, int cy) { /* */
-   /* vrai si toutes les cases de la ligne l entre colonnes cx et cy sont vides
-   */
+   /* vrai si toutes les cases de la ligne l entre colonnes cx et cy sont vides */
    int i;
    int deb = (cx < cy) ? cx : cy;
    int fin = (cx < cy) ? cy : cx;
@@ -292,8 +291,7 @@ bool dumpLine (TGAME jeu, int l, int cx, int cy) { /* */
 }
 
 bool dumpColumn (TGAME jeu, int c, int lx, int ly) { /* */
-   /* vrai si toutes les cases de la colonne c  entre ligne lx et ly sont vides
-   */
+   /* vrai si toutes les cases de la colonne c  entre ligne lx et ly sont vide */
    int i;
    int deb = (lx < ly) ? lx : ly;
    int fin = (lx < ly) ? ly : lx;
@@ -303,9 +301,7 @@ bool dumpColumn (TGAME jeu, int c, int lx, int ly) { /* */
 }
    
 void pawnProcess (TGAME jeu, struct sdep *dep) { /* */
-   /*  complete la structure dep en ajoutant l'origine si implicite; Cas du pion
-   */
-   // printf ("TraiterPion: %d\n", dep->piece);
+   /*  complete la structure dep en ajoutant l'origine si implicite; Cas du pion */
    int color = dep->piece; //-1 white, 1: black
    if (dep->prise != 'x') {
       if ((jeu [dep->ligArr + color][dep->colArr]) == dep->piece){
@@ -343,7 +339,7 @@ void complete (TGAME jeu, struct sdep *dep) { /* */
       exit (0);
    }
  
-   if (l2 == -1) { // une seul piece eligible
+   if (l2 == -1) { // une seule piece eligible
       dep->ligDeb = l1;
       dep->colDeb = c1;
       // printf ("Une seule piece eligible\n");
@@ -377,7 +373,6 @@ void complete (TGAME jeu, struct sdep *dep) { /* */
       dep->colDeb = c2;
       break;
    case KNIGHT:
-      // printf ("2 cavaliers de color %d peuvent \n", dep->piece);
       if (abs((c1 - dep->colArr) * (l1 - dep->ligArr)) == 2) {
          if (abs((c2 - dep->colArr) * (l2 - dep->ligArr)) == 2) { // les deux cavaliers pointent su l dest !
             if ((dep->colDeb == c1) || (dep->ligDeb == l1)) {
@@ -405,6 +400,7 @@ void complete (TGAME jeu, struct sdep *dep) { /* */
 
 bool syncBegin (FILE *fe, char* sComment) { /* */
    /* va a la premiere description de deplacement */
+   /* enregistre dans sComment la section commentaires PGN */
    char car1, car2;
    int i = 0;
    while (((car1 = fgetc (fe)) != EOF) && (car1 != '['));
@@ -427,13 +423,14 @@ void sprintDep (struct sdep dep, char *chDep) { /* */
    /* conversion struct en chaine algebrique complete */
    if (dep.petitRoque) sprintf (chDep, "0-0");
    else if (dep.grandRoque) sprintf (chDep, "0-0-0");
-      else sprintf (chDep,"%c%c%d%c%c%d", dico [abs(dep.piece)], dep.colDeb + 'a', dep.ligDeb+1, dep.prise, dep.colArr + 'a', dep.ligArr+1);
+      else sprintf (chDep,"%c%c%d%c%c%d", 
+           dico [abs(dep.piece)], dep.colDeb + 'a', dep.ligDeb+1, dep.prise, dep.colArr + 'a', dep.ligArr+1);
    if (dep.promotion != VOID) sprintf (chDep, "%s=%c", chDep, dico [abs(dep.promotion)]);
    if (dep.echec != '-') sprintf (chDep, "%s%c", chDep, dep.echec);
 }
 
 bool isEnd (char *chDep) { /* */
-   /* vrai si chDep correspon au resultat de fin de partie */
+   /* vrai si chDep correspond a la descroption de fin de partie */
    if (strncmp (chDep, "1/2-1/2", 7) == 0) return true; // nul
    if (strncmp (chDep, "1-0", 3) == 0) return true; // les blancs gagnent
    if (strncmp (chDep, "0-1", 3) == 0) return true; // les noirs gagnent
@@ -442,6 +439,7 @@ bool isEnd (char *chDep) { /* */
 }
 
 bool sequence (TGAME jeu, char *depAlg, int color, char *sComment) { /* */
+   /* execute la sequence de deplacement sur jeu */
    struct sdep dep;
    char sFEN [MAXLIG];
    char line [MAXLIG];
@@ -475,7 +473,12 @@ void test (TGAME jeu, int color) {
    printGame (jeu, 0);
 }
 
-int main (int argc, char *argv []) { 
+int main (int argc, char *argv []) {
+   /* -p : affiche le jeu a la console en format convivial. Sinon english */
+   /* le fichier entree est au forlat PGN */
+   /* si un nom de fichier dest est fourni, production de deux fichiers fen */
+   /* .b.fen pour les noirs .w.fen pour les blancs */
+ 
    char sComment [MAXLIG];
    char game [MAXLIG];
    char fileName [MAXLIG];
