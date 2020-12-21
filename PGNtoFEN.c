@@ -10,7 +10,7 @@
 #include <ctype.h>
 #define N 8
 #define NTRUNC 1000
-#define MAXTURN 12
+#define MAXTURN 100 // marche sans err segmentation vec A00.pgn jusque 34
 
 #define DEPART "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
 #define MAXLIG 10000          // ligne
@@ -138,6 +138,8 @@ bool move (TGAME jeu, struct sdep dep, int color) { /* */
    /* renvoie faux si le deplacement est manifestement incorrect - controle coherece */
    int base = (color == -1) ? 0 : 7;
    if (dep.petitRoque) {
+      if (abs(jeu [base][4]) != KING || jeu [base][5] != VOID || jeu [base][6] != VOID || abs (jeu[base][7]) != ROOK)
+        return false;
       jeu [base][4] = VOID;
       jeu [base][5] = ROOK * color;
       jeu [base][6] = KING * color;
@@ -145,12 +147,17 @@ bool move (TGAME jeu, struct sdep dep, int color) { /* */
       return true;
    }
    if (dep.grandRoque) {
+      if (abs(jeu [base][4]) != KING || jeu [base][3] != VOID || jeu [base][2] != VOID || jeu[base][1] != VOID ||
+          abs(jeu [base][0]) != ROOK)
+         return false;
       jeu [base][4] = VOID;
       jeu [base][3] = ROOK * color;
       jeu [base][2] = KING * color;
       jeu [base][0] = VOID;
       return true;
    }
+    
+   if ((jeu [dep.ligDeb][dep.colDeb] * jeu [dep.ligArr][dep.colArr]) > 0) return false;
    // verifications sommaires que le deplacement est correct
    switch (abs (dep.piece)) {
    case PAWN:
@@ -175,6 +182,7 @@ bool move (TGAME jeu, struct sdep dep, int color) { /* */
    break;
    default:;
    }
+
    jeu [dep.ligDeb][dep.colDeb]  = VOID;
    if ((dep.promotion != VOID) && (abs (dep.piece == PAWN))) 
       jeu [dep.ligArr][dep.colArr] = dep.piece * dep.promotion;
@@ -325,25 +333,25 @@ void pawnProcess (TGAME jeu, struct sdep *dep) { /* */
    }
 }
    
-void complete (TGAME jeu, struct sdep *dep) { /* */
+bool complete (TGAME jeu, struct sdep *dep) { /* */
    /* complete la structure dep en ajoutant l'origine si implicite */
    int l1, c1, l2, c2;
    l2 = -1;
-   if ((dep->colDeb != -1) && (dep->ligDeb != -1)) return; // deja remplis !
+   if ((dep->colDeb != -1) && (dep->ligDeb != -1)) return true; // deja remplis !
    if (abs (dep->piece) == PAWN) {
       pawnProcess (jeu, dep);
-      return;
+      return true;
    }
    if (! find (jeu, dep->piece, &l1, &c1, &l2, &c2)) {
       fprintf (stderr, "Error: man %d unfound \n", dep->piece);
-      exit (0);
+      return false;
    }
  
    if (l2 == -1) { // une seule piece eligible
       dep->ligDeb = l1;
       dep->colDeb = c1;
       // printf ("Une seule piece eligible\n");
-      return;
+      return true;
    }
    // printf ("Deux pieces eligibles \n");
    // cas ou deux pieces identiques pourraient pointer sur la destination
@@ -353,21 +361,46 @@ void complete (TGAME jeu, struct sdep *dep) { /* */
       if (abs (c1 - dep->colArr) == abs (l1 - dep->ligArr)) {
          dep->ligDeb = l1;
          dep->colDeb = c1;
-         return;
+         return true;
       }
       dep->ligDeb = l2;
       dep->colDeb = c2;
       break;
    case ROOK:
+      if ((dep->colDeb != -1) && (c1 == dep->colDeb)) { // colonne preremplie
+         dep->ligDeb = l1;
+         return true;
+      } 
+      if ((dep->colDeb != -1) && (c2 == dep->colDeb)) { // colonne preremplie
+         dep->ligDeb = l2;
+         return true;
+      } 
+      if ((dep->ligDeb != -1) && (l1 == dep->ligDeb)) { // ligne preremplie
+         dep->colDeb = c1;
+         return true;
+      } 
+      if ((dep->ligDeb != -1) && (l2 == dep->ligDeb)) { // ligne preremplie
+         dep->colDeb = c2;
+         return true;
+      } 
       if ((c1 == dep->colArr) && (dumpColumn (jeu, c1, l1, dep->ligArr))) {
+         if ((c2 == dep->colArr) && (dumpColumn (jeu, c2, l2, dep->ligArr))) {
+            dep->colDeb = c1; // meme colonne pour les deux tour. La ligne est preremplie
+            return true;
+         }
          dep->ligDeb = l1;
          dep->colDeb = c1;
-         return;
+         return true;
       } 
       if ((l1 == dep->ligArr) && (dumpLine (jeu, l1, c1, dep->colArr))) {
+         if ((l2 == dep->ligArr) && (dumpLine (jeu, l2, c2, dep->colArr))) {
+            // printf ("%smeme ligne, c1 = %d, c2 = %d, dep->colDeb = %d\n%s", C_RED, c1, c2, dep->colDeb, NORMAL);
+            dep->ligDeb = l1; // meme lignes pour les deux tour. La colonne est preremplie
+            return true;
+         }
          dep->ligDeb = l1;
          dep->colDeb = c1;
-         return;
+         return true;
       }
       dep->ligDeb = l2;
       dep->colDeb = c2;
@@ -396,6 +429,7 @@ void complete (TGAME jeu, struct sdep *dep) { /* */
       break;
    default: break;
    }
+   return true;
 }
 
 bool syncBegin (FILE *fe, char* sComment) { /* */
@@ -421,8 +455,8 @@ bool syncBegin (FILE *fe, char* sComment) { /* */
 
 void sprintDep (struct sdep dep, char *chDep) { /* */
    /* conversion struct en chaine algebrique complete */
-   if (dep.petitRoque) sprintf (chDep, "0-0");
-   else if (dep.grandRoque) sprintf (chDep, "0-0-0");
+   if (dep.petitRoque) sprintf (chDep, "O-O");
+   else if (dep.grandRoque) sprintf (chDep, "O-O-O");
       else sprintf (chDep,"%c%c%d%c%c%d", 
            dico [abs(dep.piece)], dep.colDeb + 'a', dep.ligDeb+1, dep.prise, dep.colArr + 'a', dep.ligArr+1);
    if (dep.promotion != VOID) sprintf (chDep, "%s=%c", chDep, dico [abs(dep.promotion)]);
@@ -445,9 +479,9 @@ bool sequence (TGAME jeu, char *depAlg, int color, char *sComment) { /* */
    char line [MAXLIG];
    if (! automaton (depAlg, &dep, color)) {
       fprintf (stderr, "Error: automaton in %s\n", depAlg);
-      exit (0);
+      return false;
    }
-   complete (jeu, &dep);
+   if (! complete (jeu, &dep)) return false;
    sprintDep (dep, depAlg);
    gameToFen (jeu, sFEN, color);
    sprintf (line, "%s;%s; %s", sFEN, depAlg, sComment);
@@ -487,12 +521,13 @@ int main (int argc, char *argv []) {
    char depAlg1 [20];
    char depAlg2 [20];
    bool play = false;
+   bool normal;
    FILE *fe; 
    int color = -1; // 1 : black, -1: white
    
    if (argc < 2) { 
       fprintf (stderr, "Usage: [-f] [-p] %s <sourceFile> [destFile]\n", argv [0]);
-      exit (0);
+      exit (EXIT_FAILURE);
    }
    lang = ENGLISH; 
    if (strcmp (argv [1], "-f") == 0) {
@@ -508,7 +543,7 @@ int main (int argc, char *argv []) {
 
    if (((fe = fopen(argv [indexSource], "r"))) == NULL){ 
       fprintf (stderr, "File: %s not found\n", argv [indexSource]);
-      exit (0);
+      exit (EXIT_FAILURE);
    }
    if (argc > indexSource + 1) {
       sprintf (fileName, "%s%s", argv [indexSource+1], ".b.fen"); // fichier black
@@ -536,19 +571,27 @@ int main (int argc, char *argv []) {
          }
       }
       game [NTRUNC] = '\0';
-      printf ("\n%s# %d %s%s\n", C_RED, nGame, game, NORMAL); 
+      printf ("\n%s# %d %s%s\n", C_RED, nGame, game, NORMAL);
+      normal = true; 
       do {
          nTour += 1;
          printf ("%d. %s %s\n", nTour, depAlg1, depAlg2);
          sprintf (sComment, "%s/%d/%d %s", argv [indexSource], nGame, nTour, game);
          for (int i = 0; sComment [i]; i++) 
             if (sComment [i] == '"') sComment [i] = '\'';
-         if (! sequence (jeu, depAlg1, color, sComment)) break;
+         if (! sequence (jeu, depAlg1, color, sComment)) {
+            normal = false; 
+            break;
+         }
          if ((strlen (depAlg2) != 0) && !(isEnd (depAlg2))) 
-            sequence (jeu, depAlg2, -color, sComment);
+            if (! sequence (jeu, depAlg2, -color, sComment)) {
+            normal = false;
+            break;
+         }
          if (play) printGame (jeu, 0);
-      } while (nTour < MAXTURN && fscanf (fe, "%d.%s %s", &n, depAlg1, depAlg2) == 3);
-      printf ("Nb change: %d\n", nTour);
+      } while (normal && nTour < MAXTURN && fscanf (fe, "%d.%s %s", &n, depAlg1, depAlg2) == 3);
+      printf ("No Game: %d, Nb change: %d, %s\n", nGame, nTour, (normal) ? "OK" : "Anomalie");
+      if (!normal) fprintf (stderr,"Error in Game: %d, Nb change: %d\n", nGame, nTour);
    }
    fclose (fe);
    fclose (fsw);
