@@ -1,7 +1,7 @@
-/* Tradut un fichier nom au format PGN en deux fichier au format FEN */
+/* Traduit un fichier nom au format PGN en deux fichier au format FEN */
 /* nom.b.fen pour les noirs (black) */
 /* nom.w.fen pour les blancs (white) */
-/* ./PGNtoFEN [-f] [-p] %s sourceFile */
+/* ./PGNtoFEN [-f] [-p] sourceFile [destFile] */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,7 +10,7 @@
 #include <ctype.h>
 #define N 8
 #define NTRUNC 1000
-#define MAXTURN 10
+#define MAXTURN 12
 
 #define DEPART "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
 #define MAXLIG 10000          // ligne
@@ -42,7 +42,7 @@ typedef char TGAME [N][N];
 int charToInt (int c, int lang) { /* */
    /* traduit la piece au format caractere... en nombre entier */
    int signe = islower (c) ? 1 : -1;
-   for (int i=0; i < sizeof (dico); i++)
+   for (unsigned int i = 0; i < sizeof (dico); i++)
       if (lang == FRENCH) {
          if (toupper (c) == dicoF [i]) return signe * i;
       }
@@ -78,13 +78,13 @@ void gameToFen (TGAME jeu, char *sFen, int color) { /* */
    /* on revoie les roque White et Black */
    int l, c, n, v;
    int i = 0;
-   bool castleW = false;
-   bool castleB = false;
+   //bool castleW = false;
+   //bool castleB = false;
    for (l = N-1; l >=  0; l--) {
       for (c = 0; c < N; c++) {
          if ((v = jeu [l][c]) != VOID) {
-            if (v == CASTLEKING) castleB = true;
-            if (v == -CASTLEKING) castleW = true;
+            //if (v == CASTLEKING) castleB = true;
+            //if (v == -CASTLEKING) castleW = true;
             sFen [i++] = (v >= 0) ? tolower (dico [v]) : dico [-v];
          }
          else {
@@ -109,9 +109,9 @@ void fenToGame (char *sFen, TGAME jeu) { /* */
    /* Forsyth–Edwards Notation */
    /* le jeu est recu sous la forme d'une chaine de caracteres du navigateur */
    /* fenToGame traduit cette chaine et renvoie l'objet jeu */
-   int i, k, l = 7, c = 0;
+   int k, l = 7, c = 0;
    char car;
-   for (i = 0; i < strlen (sFen) ; i++) {
+   for (unsigned i = 0; i < strlen (sFen) ; i++) {
       car = sFen [i];
       if (isspace (car)) break;
       if (car == '/') continue;
@@ -137,7 +137,6 @@ void fenToGame (char *sFen, TGAME jeu) { /* */
 bool move (TGAME jeu, struct sdep dep, int color) { /* */
    /* modifie jeu avec le deplacement dep */
    int base = (color == -1) ? 0 : 7;
-   int v;
    if (dep.petitRoque) {
       jeu [base][4] = VOID;
       jeu [base][5] = ROOK * color;
@@ -189,7 +188,7 @@ bool automaton (char *depAlg, struct sdep *dep, int color) { /* */
    int etat = 0;
    int sauveEtat = 0;
    int k = 0;
-   char car;   
+   char car;
    char reste [20];
    strcpy (reste, depAlg);
    dep->colDeb = -1; dep->colArr = -1; dep->ligDeb = -1; dep->ligArr = -1;
@@ -212,15 +211,19 @@ bool automaton (char *depAlg, struct sdep *dep, int color) { /* */
    while ((car = depAlg [k++]) != '\0') {
       switch (car) {
       case ';': sauveEtat = etat; etat = 101; break; // commentaire
-      case '\n': if (etat == 101) etat = sauveEtat; break; 
+      case '\n': if (etat == 101) etat = sauveEtat; break;
       case '{': sauveEtat = etat; etat = 100; break; // commentaire
-      case '}': if (etat == 100) etat = sauveEtat; break; 
+      case '}': if (etat == 100) etat = sauveEtat; break;
       case '.': case '!': case '?': break;
       case ' ': if (etat >= 6) etat = 9; break;
       case '+': case '#': if (etat >= 6) dep->echec = car; etat = 9; break;
       case '=': if (etat == 6) etat = 7; break; // pour promotion
       case '-': case 'x':
-         if (etat <= 3) { etat = 4; dep->prise = car; break; }
+         if (etat <= 3) {
+            etat = 4;
+            dep->prise = car;
+            break;
+      }
       case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g': case 'h':
       //printf ("automaton col %c\n", car);
          etat = (etat <= 1) ? 2 : 5;
@@ -235,11 +238,18 @@ bool automaton (char *depAlg, struct sdep *dep, int color) { /* */
          else dep->ligArr = car - '0' - 1;
          break;
       case 'R': case 'N': case 'Q':
-      case 'K': case 'P': case 'B': 
+      case 'K': case 'P': case 'B':
       default: 
          if (isupper (car)) {
-            if ((etat == 6) || (etat == 7)) { etat = 8; dep->promotion = color * abs (charToInt (car, lang)); } // pas de break : c'est voulu
-            if (etat == 0) { etat = 1; dep->piece = color*(abs(charToInt (car, lang)));  break; }
+            if ((etat == 6) || (etat == 7)) {
+               etat = 8; 
+               dep->promotion = color * abs (charToInt (car, lang));
+            } // pas de break : c'est voulu
+            if (etat == 0) {
+               etat = 1;
+               dep->piece = color*(abs(charToInt (car, lang)));
+               break; 
+            }
          }
       }
    }
@@ -424,11 +434,11 @@ void sprintDep (struct sdep dep, char *chDep) { /* */
 
 bool isEnd (char *chDep) { /* */
    /* vrai si chDep correspon au resultat de fin de partie */
-   /* 1/2-1/2 (nul) ; 1-0 (les blancs gagnent) ; 0-1 (les noirs gagnent) ; * (partie interrompue) */
-   if (strncmp (chDep, "1/2-1/2", 7) == 0) return true;
-   if (strncmp (chDep, "1-0", 3) == 0) return true;
-   if (strncmp (chDep, "0-1", 3) == 0) return true;
-   if (strncmp (chDep, "*", 1) == 0) return true;
+   if (strncmp (chDep, "1/2-1/2", 7) == 0) return true; // nul
+   if (strncmp (chDep, "1-0", 3) == 0) return true; // les blancs gagnent
+   if (strncmp (chDep, "0-1", 3) == 0) return true; // les noirs gagnent
+   if (strncmp (chDep, "*", 1) == 0) return true; // abandon/
+   return true;
 }
 
 bool sequence (TGAME jeu, char *depAlg, int color, char *sComment) { /* */
@@ -442,7 +452,7 @@ bool sequence (TGAME jeu, char *depAlg, int color, char *sComment) { /* */
    complete (jeu, &dep);
    sprintDep (dep, depAlg);
    gameToFen (jeu, sFEN, color);
-   sprintf (line, "%s;%s; %s;\n", sFEN, depAlg, sComment);
+   sprintf (line, "%s;%s; %s\n", sFEN, depAlg, sComment);
    line [NTRUNC] = '\0';
    if (color == -1) fprintf (fsw, "%s\n", line);
    else  fprintf (fsb, "%s\n", line);
@@ -465,19 +475,7 @@ void test (TGAME jeu, int color) {
    printGame (jeu, 0);
 }
 
-void test2 () {
-   TGAME jeu;
-   char sFEN [MAXLIG];
-   int c1, l1, c2, l2;
-   fenToGame (DEPART, jeu);
-   gameToFen (jeu, sFEN, 1);
-   printf ("%s\n", sFEN);
-   if (find (jeu, -ROOK, &l1, &c1, &l2, &c2))
-      printf ("trouve %d %d %d %d\n", l1, c1, l2, c2);
-   else printf ("non trouve \n");
-}
-
-void main (int argc, char *argv []) { 
+int main (int argc, char *argv []) { 
    char sComment [MAXLIG];
    char game [MAXLIG];
    char fileName [MAXLIG];
@@ -491,7 +489,7 @@ void main (int argc, char *argv []) {
    
    if (argc < 2) { 
       fprintf (stderr, "Usage: [-f] [-p] %s <sourceFile> [destFile]\n", argv [0]);
-      return;
+      exit (0);
    }
    lang = ENGLISH; 
    if (strcmp (argv [1], "-f") == 0) {
@@ -508,7 +506,7 @@ void main (int argc, char *argv []) {
 
    if (((fe = fopen(argv [indexSource], "r"))) == NULL){ 
       fprintf (stderr, "File: %s not found\n", argv [indexSource]);
-      return;
+      exit (0);
    }
    if (argc > indexSource +1) {
       sprintf (fileName, "%s%s", argv [indexSource+1], ".b.fen"); // fichier black
@@ -526,20 +524,20 @@ void main (int argc, char *argv []) {
       nGame += 1;
       nTour = 0;
       if (! syncBegin (fe, game)) {
-         fprintf (stderr, "Error: syncBegin in : %s\n", argv [indexSource]);
-         return;
+         fprintf (stderr, "End of: %s\n", argv [indexSource]);
+         exit (0);
       }
 
       while (fscanf (fe, ". %s %s", depAlg1, depAlg2) != 2) {
          if (! syncBegin (fe, game)) {
-            return;
+            exit (0);
          }
       }
       game [NTRUNC] = '\0';
       printf ("\n%s# %d %s%s\n", C_RED, nGame, game, NORMAL); 
       do {
          nTour += 1;
-         printf ("Tour: %d; %s; %s\n", nTour, depAlg1, depAlg2);
+         printf ("%d. %s %s\n", nTour, depAlg1, depAlg2);
          sprintf (sComment, "%s/%d/%d %s", argv [indexSource], nGame, nTour, game);
          for (int i = 0; sComment [i]; i++) 
             if (sComment [i] == '"') sComment [i] = '\'';
