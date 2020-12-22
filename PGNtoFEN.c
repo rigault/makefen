@@ -10,7 +10,7 @@
 #include <ctype.h>
 #define N 8
 #define NTRUNC 1000
-#define MAXTURN 100 // 
+#define MAXTURN 16 // 
 
 #define DEPART "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
 #define MAXLIG 10000          // ligne
@@ -152,9 +152,10 @@ bool move (TGAME jeu, struct sdep dep, int color) { /* */
       jeu [base][0] = VOID;
       return true;
    }
-    
+   // verif que l'on va sur une case vide ou de la couleur opposée (produit negatif ou nul) 
    if ((jeu [dep.ligDeb][dep.colDeb] * jeu [dep.ligArr][dep.colArr]) > 0) return false;
-   // verifications sommaires que le deplacement est correct
+
+   // verifications sommaires (non exhaustif) que le deplacement est correct
    switch (abs (dep.piece)) {
    case PAWN:
       if (abs (dep.colArr - dep.colDeb) > 1) return false;
@@ -170,6 +171,7 @@ bool move (TGAME jeu, struct sdep dep, int color) { /* */
       if (colLigDiff) return false;
    break;
    case KING:
+      if (abs((dep.colArr-dep.colDeb) * (dep.ligArr-dep.ligDeb)) > 1) return false;
       if (abs (dep.colArr-dep.colDeb) !=1 && (abs (dep.ligArr-dep.ligDeb) != 1)) return false;
    break;
    case QUEEN:
@@ -305,10 +307,10 @@ void pawnProcess (TGAME jeu, struct sdep *dep) { /* */
    /*  complete la structure dep en ajoutant l'origine si implicite; Cas du pion */
    int color = dep->piece; //-1 white, 1: black
    if (dep->prise != 'x') {
-      if ((jeu [dep->ligArr + color][dep->colArr]) == dep->piece){
+      if ((jeu [dep->ligArr + color][dep->colArr]) == dep->piece) {
          dep->ligDeb = dep->ligArr + color;
       }
-      if ((jeu [dep->ligArr + 2 * color][dep->colArr]) == dep->piece){
+      if ((jeu [dep->ligArr + 2 * color][dep->colArr]) == dep->piece) {
          dep->ligDeb = dep->ligArr + 2 * color;
       }
       dep->colDeb = dep->colArr;

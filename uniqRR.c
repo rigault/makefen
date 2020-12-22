@@ -12,26 +12,17 @@
 #define SEP ";"
 #define MAXLEN 10000
 
-
-bool uniq (const char *fileName, const char *sep) { /* */
-   FILE *fe;
+bool uniq (FILE *fe, const char *sep) { /* */
    char line1 [MAXLEN];
    char line2 [MAXLEN];
    char lineSave1 [MAXLEN];
    char lineSave2 [MAXLEN];
    char *first1, *first2;
 
-   if ((fe = fopen (fileName, "r")) == NULL) {
-      fprintf (stderr, "file: %s not found\n", fileName);
-      return false;
-   }
-
    if (fgets (line1, MAXLEN, fe) == NULL) return false;
    strcpy (lineSave1, line1);
+   if ((first1 = strtok (line1, sep)) == NULL) return true;
    
-   if ((first1 = strtok (line1, sep)) == NULL) {
-      return true;
-   }
    while (fgets (line2, MAXLEN, fe) != NULL) {
       strcpy (lineSave2, line2);
       if ((first2 = strtok (line2, sep)) == NULL) break;
@@ -45,10 +36,14 @@ bool uniq (const char *fileName, const char *sep) { /* */
 }
 
 int main (int argc, char *argv []) {
+   FILE *fe;
    if (argc != 2) {
       fprintf (stderr, "Usage: %s <filename>\n", argv [0]);
-      exit (0);
+      exit (EXIT_FAILURE);
    }
-   uniq (argv [1], SEP);
+   if ((fe = fopen (argv [1], "r")) == NULL) {
+      fprintf (stderr, "file: %s not found\n", argv [1]);
+      exit (EXIT_FAILURE);
+   }
+   uniq (fe, SEP);
 }
-

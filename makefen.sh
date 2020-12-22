@@ -1,7 +1,8 @@
 #!/bin/bash
+rm null
 for file in `ls ../pgn`; do
    echo ../pgn/file
-   ./PGNtoFEN ../pgn/$file ../ecofen/$file
+   ./PGNtoFEN ../pgn/$file ../ecofen/$file 2>> null
 done
 
 cat ../ecofen/*.b.fen | sort > ../ecofen/temp.b.fen
