@@ -1,6 +1,3 @@
-# makefen
-Produce FEN files based on PGN files. For chess games
-
 Fichier PGNtoFEN.c
 ------------------
 /* Traduit un fichier nom au format PGN en deux fichier au format FEN */
@@ -17,7 +14,6 @@ void printGame (TGAME jeu, int eval) { /* */
 void gameToFen (TGAME jeu, char *sFen, int color) { /* */
    /* Forsyth–Edwards Notation */
    /* le jeu est envoye sous la forme d'une chaine de caracteres au format FEN */
-   /*if (!castleW) strcat (sFen, "KQ");
 
 void fenToGame (char *sFen, TGAME jeu) { /* */
    /* Forsyth–Edwards Notation */
@@ -45,18 +41,12 @@ bool dumpColumn (TGAME jeu, int c, int lx, int ly) { /* */
 void pawnProcess (TGAME jeu, struct sdep *dep) { /* */
    /*  complete la structure dep en ajoutant l'origine si implicite; Cas du pion */
 
-void complete (TGAME jeu, struct sdep *dep) { /* */
+bool complete (TGAME jeu, struct sdep *dep) { /* */
    /* complete la structure dep en ajoutant l'origine si implicite */
 
 bool syncBegin (FILE *fe, char* sComment) { /* */
    /* va a la premiere description de deplacement */
    /* enregistre dans sComment la section commentaires PGN */
-*sep) { /* */
-5
-​
-6
-​
-7
 
 void sprintDep (struct sdep dep, char *chDep) { /* */
    /* conversion struct en chaine algebrique complete */
@@ -80,4 +70,12 @@ Fichier uniqRR.c
 /* ./uniqRR fileName */
 
 bool uniq (const char *fileName, const char *sep) { /* */
+
+
+Fichier findgame.c
+------------------
+/* trouve le jeu no dans le fichier PGN */
+/* ./findgame fileName no */
+
+bool findName (FILE *fe, int nCible) { /* */
 
