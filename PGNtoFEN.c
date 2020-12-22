@@ -10,7 +10,7 @@
 #include <ctype.h>
 #define N 8
 #define NTRUNC 1000
-#define MAXTURN 100 // marche sans err segmentation vec A00.pgn jusque 34
+#define MAXTURN 100 // 
 
 #define DEPART "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
 #define MAXLIG 10000          // ligne
@@ -77,13 +77,9 @@ void gameToFen (TGAME jeu, char *sFen, int color) { /* */
    /* le jeu est envoye sous la forme d'une chaine de caracteres au format FEN */
    int l, c, n, v;
    int i = 0;
-   //bool castleW = false;
-   //bool castleB = false;
    for (l = N-1; l >=  0; l--) {
       for (c = 0; c < N; c++) {
          if ((v = jeu [l][c]) != VOID) {
-            //if (v == CASTLEKING) castleB = true;
-            //if (v == -CASTLEKING) castleW = true;
             sFen [i++] = (v >= 0) ? tolower (dico [v]) : dico [-v];
          }
          else {
@@ -98,10 +94,6 @@ void gameToFen (TGAME jeu, char *sFen, int color) { /* */
    sFen [i] = '\0';
    if (color == 1) strcat (sFen, " b ");
    else strcat (sFen, " w ");
-   /*if (!castleW) strcat (sFen, "KQ");
-   else strcat (sFen, "-");
-   if (!castleB) strcat (sFen, "kq");
-   else strcat (sFen, "-");*/
 }
 
 void fenToGame (char *sFen, TGAME jeu) { /* */
@@ -122,8 +114,6 @@ void fenToGame (char *sFen, TGAME jeu) { /* */
       }
       else {
          jeu [l][c] = charToInt (car, ENGLISH);
-//         if (car == 'K' && getInfo.castleW == '1') jeu [l][c] = -CASTLEKING; // le roi blanc a deja roque
-//         if (car == 'k' && getInfo.castleB == '1') jeu [l][c] = CASTLEKING; // le roi noir a deja roque
          c += 1;
       }
       if (c == N) {
@@ -137,9 +127,13 @@ bool move (TGAME jeu, struct sdep dep, int color) { /* */
    /* modifie jeu avec le deplacement dep */
    /* renvoie faux si le deplacement est manifestement incorrect - controle coherece */
    int base = (color == -1) ? 0 : 7;
+   bool diagDiff = abs (dep.ligArr-dep.ligDeb) != abs (dep.colArr - dep.colDeb); // diag differentes
+   bool colLigDiff = (dep.colArr != dep.colDeb && dep.ligArr != dep.ligDeb); // col ou lig differentes
    if (dep.petitRoque) {
-      if (abs(jeu [base][4]) != KING || jeu [base][5] != VOID || jeu [base][6] != VOID || abs (jeu[base][7]) != ROOK)
-        return false;
+      if (abs(jeu [base][4]) != KING || jeu [base][5] != VOID || jeu [base][6] != VOID || abs (jeu[base][7]) != ROOK) {
+         fprintf (stderr, "Error: Small castle requested but not possible\n");
+         return false;
+      }
       jeu [base][4] = VOID;
       jeu [base][5] = ROOK * color;
       jeu [base][6] = KING * color;
@@ -148,8 +142,10 @@ bool move (TGAME jeu, struct sdep dep, int color) { /* */
    }
    if (dep.grandRoque) {
       if (abs(jeu [base][4]) != KING || jeu [base][3] != VOID || jeu [base][2] != VOID || jeu[base][1] != VOID ||
-          abs(jeu [base][0]) != ROOK)
+          abs(jeu [base][0]) != ROOK) {
+         fprintf (stderr, "Error: Big castle requested but not possible\n");
          return false;
+      }
       jeu [base][4] = VOID;
       jeu [base][3] = ROOK * color;
       jeu [base][2] = KING * color;
@@ -168,17 +164,16 @@ bool move (TGAME jeu, struct sdep dep, int color) { /* */
       if (abs (dep.colArr-dep.colDeb) * abs (dep.ligArr-dep.ligDeb) != 2) return false;
    break;
    case BISHOP:
-      if (abs (dep.ligArr-dep.ligDeb) != abs (dep.colArr - dep.colDeb)) return false;
+      if (diagDiff) return false;
    break;
    case ROOK:
-      if (dep.colArr != dep.colDeb && dep.ligArr != dep.ligDeb) return false;
+      if (colLigDiff) return false;
    break;
    case KING:
       if (abs (dep.colArr-dep.colDeb) !=1 && (abs (dep.ligArr-dep.ligDeb) != 1)) return false;
    break;
    case QUEEN:
-      if ((abs (dep.ligArr-dep.ligDeb) != abs (dep.colArr - dep.colDeb)) &&
-       (dep.colArr != dep.colDeb) && (dep.ligArr != dep.ligDeb)) return false;
+      if (diagDiff && colLigDiff) return false;
    break;
    default:;
    }
@@ -233,13 +228,11 @@ bool automaton (char *depAlg, struct sdep *dep, int color) { /* */
             break;
       }
       case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g': case 'h':
-      //printf ("automaton col %c\n", car);
          etat = (etat <= 1) ? 2 : 5;
          if (dep->colDeb == -1) dep->colDeb = car - 'a';
          else dep->colArr = car - 'a';
          break;
       case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8':
-      // printf ("automaton lig %c\n", car);
          etat = (etat <= 1) ? 2 : 5;
          etat = (etat <= 1) ? 3 : 6;
          if (dep->ligDeb == -1) dep->ligDeb = car - '0' - 1;
@@ -350,12 +343,11 @@ bool complete (TGAME jeu, struct sdep *dep) { /* */
    if (l2 == -1) { // une seule piece eligible
       dep->ligDeb = l1;
       dep->colDeb = c1;
-      // printf ("Une seule piece eligible\n");
       return true;
    }
-   // printf ("Deux pieces eligibles \n");
+   
    // cas ou deux pieces identiques pourraient pointer sur la destination
-   // ce ne peux être que cavalier ou tour ou fou (car reine, roi sont unique)
+   // ce ne peux être que cavalier ou tour (car reine, roi sont unique, et fou lie a une couleur de case)
    switch (abs(dep->piece)) {
    case BISHOP:
       if (abs (c1 - dep->colArr) == abs (l1 - dep->ligArr)) {
@@ -365,8 +357,10 @@ bool complete (TGAME jeu, struct sdep *dep) { /* */
       }
       dep->ligDeb = l2;
       dep->colDeb = c2;
-      break;
+      return true;
    case ROOK:
+      // printf ("l1 %d c1 %d l2 %d c2 %d\n", l1, c1, l2, c2); 
+      // printf ("ligDeb %d coDeb %d\n", dep->ligDeb, dep->colDeb);
       if ((dep->colDeb != -1) && (c1 == dep->colDeb)) { // colonne preremplie
          dep->ligDeb = l1;
          return true;
@@ -384,26 +378,31 @@ bool complete (TGAME jeu, struct sdep *dep) { /* */
          return true;
       } 
       if ((c1 == dep->colArr) && (dumpColumn (jeu, c1, l1, dep->ligArr))) {
-         if ((c2 == dep->colArr) && (dumpColumn (jeu, c2, l2, dep->ligArr))) {
-            dep->colDeb = c1; // meme colonne pour les deux tour. La ligne est preremplie
-            return true;
-         }
          dep->ligDeb = l1;
          dep->colDeb = c1;
          return true;
       } 
+      if ((c2 == dep->colArr) && (dumpColumn (jeu, c2, l2, dep->ligArr))) {
+         dep->ligDeb = l2;
+         dep->colDeb = c2;
+         return true;
+      }
       if ((l1 == dep->ligArr) && (dumpLine (jeu, l1, c1, dep->colArr))) {
-         if ((l2 == dep->ligArr) && (dumpLine (jeu, l2, c2, dep->colArr))) {
-            // printf ("%smeme ligne, c1 = %d, c2 = %d, dep->colDeb = %d\n%s", C_RED, c1, c2, dep->colDeb, NORMAL);
-            dep->ligDeb = l1; // meme lignes pour les deux tour. La colonne est preremplie
-            return true;
-         }
          dep->ligDeb = l1;
          dep->colDeb = c1;
          return true;
       }
-      dep->ligDeb = l2;
-      dep->colDeb = c2;
+      if ((l2 == dep->ligArr) && (dumpLine (jeu, l2, c2, dep->colArr))) {
+         dep->ligDeb = l2;
+         dep->colDeb = c2;
+         return true;
+      }
+      
+      // il y a deux pièces eligibles mais pas de depart colonne ou lignes depart identifies
+      if ((l2 != -1) && (dep->ligDeb == -1) && (dep->colDeb == -1)) {
+         fprintf (stderr, "Error: ambiguous move\n");
+         return false;
+      }
       break;
    case KNIGHT:
       if (abs((c1 - dep->colArr) * (l1 - dep->ligArr)) == 2) {
@@ -590,8 +589,8 @@ int main (int argc, char *argv []) {
          }
          if (play) printGame (jeu, 0);
       } while (normal && nTour < MAXTURN && fscanf (fe, "%d.%s %s", &n, depAlg1, depAlg2) == 3);
-      printf ("No Game: %d, Nb change: %d, %s\n", nGame, nTour, (normal) ? "OK" : "Anomalie");
-      if (!normal) fprintf (stderr,"Error in Game: %d, Nb change: %d\n", nGame, nTour);
+      fprintf (stderr, "File: %s, Game: %d, Change: %d, %s\n", argv [indexSource], nGame, nTour, (normal) ? "OK" : "Anomalie");
+      if (!normal) fprintf (stderr,"Error in File: %s, Game: %d, Change: %d\n", argv [indexSource], nGame, nTour);
    }
    fclose (fe);
    fclose (fsw);
