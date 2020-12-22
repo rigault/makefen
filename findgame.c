@@ -1,6 +1,4 @@
-/* trouve le neme jeu du fichier PGN */
-/* deux lignes sont considerees equivalentes si le premier champ est egal */
-/* ce premier champ est delimite par le separateur SEP */
+/* trouve le jeu no dans le fichier PGN */
 /* ./findgame fileName no */
 
 #include <stdio.h>

@@ -1,5 +1,5 @@
 #!/bin/bash
-declare -a StringArray=("PGNtoFEN.c" "uniqRR.c")
+declare -a StringArray=("PGNtoFEN.c" "uniqRR.c" "findgame.c")
  
 for file in ${StringArray[@]}; do
    echo "Fichier $file"
