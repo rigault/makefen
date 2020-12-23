@@ -2,6 +2,7 @@
 /* nom.b.fen pour les noirs (black) */
 /* nom.w.fen pour les blancs (white) */
 /* ./PGNtoFEN [-f] [-p] sourceFile [destFile] */
+/* ne gere pas en passant */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -162,7 +163,7 @@ bool move (TGAME jeu, struct sdep dep, int color) { /* */
       if (abs (dep.ligArr - dep.ligDeb) > 2) return false;
    break;
    case KNIGHT:
-      if (abs (dep.colArr-dep.colDeb) * abs (dep.ligArr-dep.ligDeb) != 2) return false;
+      // if (abs (dep.colArr-dep.colDeb) * abs (dep.ligArr-dep.ligDeb) != 2) return false;
    break;
    case BISHOP:
       if (diagDiff) return false;
@@ -227,8 +228,8 @@ bool automaton (char *depAlg, struct sdep *dep, int color) { /* */
          if (etat <= 3) {
             etat = 4;
             dep->prise = car;
-            break;
-      }
+         }
+         break;
       case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g': case 'h':
          etat = (etat <= 1) ? 2 : 5;
          if (dep->colDeb == -1) dep->colDeb = car - 'a';
@@ -240,9 +241,7 @@ bool automaton (char *depAlg, struct sdep *dep, int color) { /* */
          if (dep->ligDeb == -1) dep->ligDeb = car - '0' - 1;
          else dep->ligArr = car - '0' - 1;
          break;
-      case 'R': case 'N': case 'Q':
-      case 'K': case 'P': case 'B':
-      default: 
+      default: // R N B Q K R
          if (isupper (car)) {
             if ((etat == 6) || (etat == 7)) {
                etat = 8; 
@@ -348,6 +347,7 @@ bool complete (TGAME jeu, struct sdep *dep) { /* */
    /* complete la structure dep en ajoutant l'origine si implicite */
    int l1, c1, l2, c2;
    l2 = -1;
+   
    if ((dep->colDeb != -1) && (dep->ligDeb != -1)) return true; // deja remplis !
    if (dep->petitRoque || dep->grandRoque) return true; // roque. Rien a completer.
    if (abs (dep->piece) == PAWN) return pawnProcess (jeu, dep); // c'est un pion
@@ -511,7 +511,9 @@ bool sequence (TGAME jeu, char *depAlg, int color, char *sComment) { /* */
    line [NTRUNC] = '\0';
    if (color == -1) fprintf (fsw, "%s\n", line);
    else  fprintf (fsb, "%s\n", line);
-   return move (jeu, dep, color);
+   if (move (jeu, dep, color)) return true;
+   fprintf (stderr, "Error: Move piece %d \n", dep.piece);
+   return false;
 }
 
 int main (int argc, char *argv []) {
