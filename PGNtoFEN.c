@@ -303,19 +303,34 @@ bool dumpColumn (TGAME jeu, int c, int lx, int ly) { /* */
    return true;
 }
    
-void pawnProcess (TGAME jeu, struct sdep *dep) { /* */
+bool pawnProcess (TGAME jeu, struct sdep *dep) { /* */
    /*  complete la structure dep en ajoutant l'origine si implicite; Cas du pion */
    int color = dep->piece; //-1 white, 1: black
-   if (dep->prise != 'x') {
+   if (dep->prise != 'x') { // pas de prise
+      // printf ("colDep %d  ligDep %d colArr %d ligArr %d\n", dep->colDeb, dep->ligDeb, dep->colArr, dep->ligArr);
+      if (jeu [dep->ligArr][dep->colArr] != 0) {
+         fprintf (stderr, "Error: Pawn move to unvoid case\n"); 
+         return false;
+      }
       if ((jeu [dep->ligArr + color][dep->colArr]) == dep->piece) {
+         dep->colDeb = dep->colArr;
          dep->ligDeb = dep->ligArr + color;
+         return true;
       }
       if ((jeu [dep->ligArr + 2 * color][dep->colArr]) == dep->piece) {
+         dep->colDeb = dep->colArr;
          dep->ligDeb = dep->ligArr + 2 * color;
+         return true;
       }
-      dep->colDeb = dep->colArr;
+      fprintf (stderr, "Error: Strange pawn move\n"); 
+      return false;
    }
    else { // prise
+      if (jeu [dep->ligArr][dep->colArr] * color >= 0) { // le produit devrait etre negatif
+         fprintf (stderr, "Error: Pawn should take opposite color\n"); 
+         return false;
+      }
+
       if ((dep->ligArr + color < N) && (dep->ligArr + color >= 0) && (dep->colArr-1< N) && (dep->ligArr-1 >= 0) && 
       (jeu [dep->ligArr + color][dep->colArr-1] == dep->piece)) {
          dep->ligDeb = dep->ligArr + color;
@@ -326,6 +341,7 @@ void pawnProcess (TGAME jeu, struct sdep *dep) { /* */
          if (dep->colDeb == -1) dep->colDeb = dep->colArr + 1;
       }
    }
+   return true;
 }
    
 bool complete (TGAME jeu, struct sdep *dep) { /* */
@@ -333,10 +349,9 @@ bool complete (TGAME jeu, struct sdep *dep) { /* */
    int l1, c1, l2, c2;
    l2 = -1;
    if ((dep->colDeb != -1) && (dep->ligDeb != -1)) return true; // deja remplis !
-   if (abs (dep->piece) == PAWN) {
-      pawnProcess (jeu, dep);
-      return true;
-   }
+   if (dep->petitRoque || dep->grandRoque) return true; // roque. Rien a completer.
+   if (abs (dep->piece) == PAWN) return pawnProcess (jeu, dep); // c'est un pion
+
    if (! find (jeu, dep->piece, &l1, &c1, &l2, &c2)) {
       fprintf (stderr, "Error: man %d unfound \n", dep->piece);
       return false;
@@ -351,7 +366,7 @@ bool complete (TGAME jeu, struct sdep *dep) { /* */
    // cas ou deux pieces identiques pourraient pointer sur la destination
    // ce ne peux être que cavalier ou tour (car reine, roi sont unique, et fou lie a une couleur de case)
    switch (abs(dep->piece)) {
-   case BISHOP:
+   case BISHOP: // un seul fou peut être sur une meme diagonale
       if (abs (c1 - dep->colArr) == abs (l1 - dep->ligArr)) {
          dep->ligDeb = l1;
          dep->colDeb = c1;
@@ -402,35 +417,42 @@ bool complete (TGAME jeu, struct sdep *dep) { /* */
       
       // il y a deux pièces eligibles mais pas de depart colonne ou lignes depart identifies
       if ((l2 != -1) && (dep->ligDeb == -1) && (dep->colDeb == -1)) {
-         fprintf (stderr, "Error: ambiguous move\n");
+         fprintf (stderr, "Error: ambiguous Tower move\n");
          return false;
       }
       break;
    case KNIGHT:
-      if (abs((c1 - dep->colArr) * (l1 - dep->ligArr)) == 2) {
-         if (abs((c2 - dep->colArr) * (l2 - dep->ligArr)) == 2) { // les deux cavaliers pointent su l dest !
-            if ((dep->colDeb == c1) || (dep->ligDeb == l1)) {
-                dep->colDeb = c1;
-                dep->ligDeb = l1;
-            }
-            else {
-               dep->colDeb = c2;
-               dep->ligDeb = l2;
-            }
-         }
-         else {
-            dep->colDeb = c1;
-            dep->ligDeb = l1;
-         }
-      } 
-      else {
+      // les deux cvaliers pointent sur la meme destination
+      if ((abs((c1 - dep->colArr) * (l1 - dep->ligArr)) == 2) && abs((c2 - dep->colArr) * (l2 - dep->ligArr)) == 2) {
+          if ((dep->colDeb == c1) || (dep->ligDeb == l1)) {
+             dep->colDeb = c1;
+             dep->ligDeb = l1;
+             return true;
+          }
+          if ((dep->colDeb == c2) || (dep->ligDeb == l2)) {
+             dep->colDeb = c2;
+             dep->ligDeb = l2;
+             return true;
+          }
+          fprintf (stderr, "Error: Ambiguous move. Two possible kNights\n");
+          return false;
+      }
+      if (abs((c1 - dep->colArr) * (l1 - dep->ligArr)) == 2) { // seule le premier cavalier eligible
+         dep->colDeb = c1;
+         dep->ligDeb = l1;
+         return true;
+      }
+      if (abs((c2 - dep->colArr) * (l2 - dep->ligArr)) == 2) { // seul le second cavalier eligible
          dep->colDeb = c2;
          dep->ligDeb = l2;
+         return true;
       }
-      break;
+      fprintf (stderr, "Error: no kNight can move to specified destination\n");
+      return false;
    default: break;
    }
-   return true;
+   fprintf (stderr, "Error: unknown piece\n");
+   return false;
 }
 
 bool syncBegin (FILE *fe, char* sComment) { /* */
@@ -479,7 +501,7 @@ bool sequence (TGAME jeu, char *depAlg, int color, char *sComment) { /* */
    char sFEN [MAXLIG];
    char line [MAXLIG];
    if (! automaton (depAlg, &dep, color)) {
-      fprintf (stderr, "Error: automaton in %s\n", depAlg);
+      fprintf (stderr, "Error: Automaton in %s\n", depAlg);
       return false;
    }
    if (! complete (jeu, &dep)) return false;
@@ -490,22 +512,6 @@ bool sequence (TGAME jeu, char *depAlg, int color, char *sComment) { /* */
    if (color == -1) fprintf (fsw, "%s\n", line);
    else  fprintf (fsb, "%s\n", line);
    return move (jeu, dep, color);
-}
-
-void test (TGAME jeu, int color) {
-   char chDep [MAXLIG];
-   struct sdep dep;
-   fenToGame (DEPART, jeu);
-   strcpy (chDep, "Nf3");
-   automaton (chDep, &dep, -1);
-   printf ("%d\n", dep.ligArr);
-   sprintDep (dep, chDep);
-   printf ("chDep auto : %s\n", chDep);
-   complete (jeu, &dep);
-   sprintDep (dep, chDep);
-   printf ("chDep Complet: %s\n", chDep);
-   move (jeu, dep, color);
-   printGame (jeu, 0);
 }
 
 int main (int argc, char *argv []) {
@@ -533,7 +539,6 @@ int main (int argc, char *argv []) {
    lang = ENGLISH; 
    if (strcmp (argv [1], "-f") == 0) {
       indexSource +=1 ;
-      printf ("In french\n");
       lang = FRENCH;
    }
 
@@ -563,12 +568,12 @@ int main (int argc, char *argv []) {
       nTour = 0;
       if (! syncBegin (fe, game)) {
          fprintf (stderr, "End of: %s\n", argv [indexSource]);
-         exit (0);
+         exit (EXIT_SUCCESS);
       }
 
       while (fscanf (fe, ". %s %s", depAlg1, depAlg2) != 2) {
          if (! syncBegin (fe, game)) {
-            exit (0);
+            exit (EXIT_SUCCESS);
          }
       }
       game [NTRUNC] = '\0';
@@ -591,8 +596,7 @@ int main (int argc, char *argv []) {
          }
          if (play) printGame (jeu, 0);
       } while (normal && nTour < MAXTURN && fscanf (fe, "%d.%s %s", &n, depAlg1, depAlg2) == 3);
-      fprintf (stderr, "File: %s, Game: %d, Change: %d, %s\n", argv [indexSource], nGame, nTour, (normal) ? "OK" : "Anomalie");
-      if (!normal) fprintf (stderr,"Error in File: %s, Game: %d, Change: %d\n", argv [indexSource], nGame, nTour);
+      fprintf (stderr, "%sFile: %s, Game: %d, Change: %d\n", (normal) ? "OK " : "Error: ", argv [indexSource], nGame, nTour);
    }
    fclose (fe);
    fclose (fsw);
