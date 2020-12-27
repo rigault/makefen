@@ -11,7 +11,7 @@
 #include <ctype.h>
 #define N 8
 #define NTRUNC 1000
-#define MAXTURN 16 // 
+#define MAXTURN 8 // 
 
 #define DEPART "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
 #define MAXLIG 10000          // ligne
@@ -55,13 +55,12 @@ int charToInt (int c, int lang) { /* */
 
 void printGame (TGAME jeu, int eval) { /* */
    /* imprime le jeu a la console pour option -p */
-   int l, c;
    int v;
    bool normal = true;
    for (int c = 'a'; c <= 'h'; c++) printf (" %c ", c);
    printf ("   --> eval: %d\n", eval);
-   for (l = 7; l >= 0; l--) {
-      for (c = 0; c < N; c++) {
+   for (int l = 7; l >= 0; l--) {
+      for (int c = 0; c < N; c++) {
          printf ("%s", (normal ? BG_CYAN : BG_BLACK));
          normal =! normal; 
          v = jeu [l][c];
@@ -76,10 +75,10 @@ void printGame (TGAME jeu, int eval) { /* */
 void gameToFen (TGAME jeu, char *sFen, int color) { /* */
    /* Forsyth–Edwards Notation */
    /* le jeu est envoye sous la forme d'une chaine de caracteres au format FEN */
-   int l, c, n, v;
+   int n, v;
    int i = 0;
-   for (l = N-1; l >=  0; l--) {
-      for (c = 0; c < N; c++) {
+   for (int l = N-1; l >=  0; l--) {
+      for (int c = 0; c < N; c++) {
          if ((v = jeu [l][c]) != VOID) {
             sFen [i++] = (v >= 0) ? tolower (dico [v]) : dico [-v];
          }
@@ -93,22 +92,21 @@ void gameToFen (TGAME jeu, char *sFen, int color) { /* */
    }
    sFen [--i] = ' ';
    sFen [i] = '\0';
-   if (color == 1) strcat (sFen, " b ");
-   else strcat (sFen, " w ");
+   strcat (sFen, (color == 1) ? " b " : " w ");
 }
 
 void fenToGame (char *sFen, TGAME jeu) { /* */
    /* Forsyth–Edwards Notation */
    /* le jeu est recu sous la forme d'une chaine de caracteres */
    /* fenToGame traduit cette chaine et renvoie l'objet jeu */
-   int k, l = 7, c = 0;
+   int l = 7, c = 0;
    char car;
    for (unsigned i = 0; i < strlen (sFen) ; i++) {
       car = sFen [i];
       if (isspace (car)) break;
       if (car == '/') continue;
       if (isdigit (car)) {
-         for (k = 0; k < car - '0'; k++) {
+         for (int k = 0; k < car - '0'; k++) {
             jeu [l][c] = VOID;
             c += 1;
          }
@@ -204,11 +202,11 @@ bool automaton (char *depAlg, struct sdep *dep, int color) { /* */
    dep->promotion = VOID;
    dep->prise = '-';
    dep->echec = '-';
-   if ((strncmp (depAlg, "O-O-O", 5) == 0) || (strncmp (depAlg, "O-O-O", 5) == 0)) {
+   if (strncmp (depAlg, "O-O-O", 5) == 0) {
       dep->grandRoque = true;
       return true;
    }
-   if ((strncmp (depAlg, "O-O", 3) == 0) || (strncmp (depAlg, "O-O", 3) == 0)) {
+   if (strncmp (depAlg, "O-O", 3) == 0) {
       dep->petitRoque = true;
       return true;
    }
@@ -263,10 +261,9 @@ bool automaton (char *depAlg, struct sdep *dep, int color) { /* */
 bool find (TGAME jeu, int piece, int *l1, int *c1, int *l2, int *c2) { /* */
    /* coordonnées de la piece ou des deux pieces identiques dont l'ID est passée en argument */
    /* renvoie vrai si au moins une piece trouvee */
-   int l, c;
    bool trouve = false;
-   for (l = 0; l < N; l++) {
-      for (c = 0; c < N; c++) {
+   for (int l = 0; l < N; l++) {
+      for (int c = 0; c < N; c++) {
          if ((jeu [l][c] == piece)) {
             if (! trouve) {
                *l1 = l; *c1 = c;
@@ -284,20 +281,18 @@ bool find (TGAME jeu, int piece, int *l1, int *c1, int *l2, int *c2) { /* */
 
 bool dumpLine (TGAME jeu, int l, int cx, int cy) { /* */
    /* vrai si toutes les cases de la ligne l entre colonnes cx et cy sont vides */
-   int i;
    int deb = (cx < cy) ? cx : cy;
    int fin = (cx < cy) ? cy : cx;
-   for (i = (deb + 1); i < fin; i++)
+   for (int i = (deb + 1); i < fin; i++)
       if (jeu [l][i] != VOID) return false;
    return true;
 }
 
 bool dumpColumn (TGAME jeu, int c, int lx, int ly) { /* */
    /* vrai si toutes les cases de la colonne c  entre ligne lx et ly sont vide */
-   int i;
    int deb = (lx < ly) ? lx : ly;
    int fin = (lx < ly) ? ly : lx;
-   for (i = deb + 1; i < fin; i ++)
+   for (int i = deb + 1; i < fin; i ++)
       if (jeu [i][c] != VOID) return false;
    return true;
 }
@@ -344,7 +339,8 @@ bool pawnProcess (TGAME jeu, struct sdep *dep) { /* */
 }
    
 bool complete (TGAME jeu, struct sdep *dep) { /* */
-   /* complete la structure dep en ajoutant l'origine si implicite */
+   /* complete la structure dep en ajoutant l'origine definie par */
+   /* dep-> colDeb et dep->colArr si implicite */
    int l1, c1, l2, c2;
    l2 = -1;
    
