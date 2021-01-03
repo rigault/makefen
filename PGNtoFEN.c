@@ -79,11 +79,11 @@ void gameToFen (TGAME jeu, char *sFen, int color) { /* */
    int i = 0;
    for (int l = N-1; l >=  0; l--) {
       for (int c = 0; c < N; c++) {
-         if ((v = jeu [l][c]) != VOID) {
+         if ((v = jeu [l][c]) != 0) {
             sFen [i++] = (v >= 0) ? tolower (dico [v]) : dico [-v];
          }
          else {
-            for (n = 0; (c+n < N) && (jeu [l][c+n] == VOID); n++);
+            for (n = 0; (c+n < N) && (jeu [l][c+n] == 0); n++);
             sFen [i++] = '0' + n;
             c += n-1;
          }
@@ -107,7 +107,7 @@ void fenToGame (char *sFen, TGAME jeu) { /* */
       if (car == '/') continue;
       if (isdigit (car)) {
          for (int k = 0; k < car - '0'; k++) {
-            jeu [l][c] = VOID;
+            jeu [l][c] = 0;
             c += 1;
          }
       }
@@ -129,26 +129,26 @@ bool move (TGAME jeu, struct sdep dep, int color) { /* */
    bool diagDiff = abs (dep.ligArr-dep.ligDeb) != abs (dep.colArr - dep.colDeb); // diag differentes
    bool colLigDiff = (dep.colArr != dep.colDeb && dep.ligArr != dep.ligDeb); // col ou lig differentes
    if (dep.petitRoque) {
-      if (abs(jeu [base][4]) != KING || jeu [base][5] != VOID || jeu [base][6] != VOID || abs (jeu[base][7]) != ROOK) {
+      if (abs(jeu [base][4]) != KING || jeu [base][5] != 0 || jeu [base][6] != 0 || abs (jeu[base][7]) != ROOK) {
          fprintf (stderr, "Error: Small castle requested but not possible\n");
          return false;
       }
-      jeu [base][4] = VOID;
+      jeu [base][4] = 0;
       jeu [base][5] = ROOK * color;
       jeu [base][6] = KING * color;
-      jeu [base][7] = VOID;
+      jeu [base][7] = 0;
       return true;
    }
    if (dep.grandRoque) {
-      if (abs(jeu [base][4]) != KING || jeu [base][3] != VOID || jeu [base][2] != VOID || jeu[base][1] != VOID ||
+      if (abs(jeu [base][4]) != KING || jeu [base][3] != 0 || jeu [base][2] != 0 || jeu[base][1] != 0 ||
           abs(jeu [base][0]) != ROOK) {
          fprintf (stderr, "Error: Big castle requested but not possible\n");
          return false;
       }
-      jeu [base][4] = VOID;
+      jeu [base][4] = 0;
       jeu [base][3] = ROOK * color;
       jeu [base][2] = KING * color;
-      jeu [base][0] = VOID;
+      jeu [base][0] = 0;
       return true;
    }
    // verif que l'on va sur une case vide ou de la couleur opposée (produit negatif ou nul) 
@@ -179,8 +179,8 @@ bool move (TGAME jeu, struct sdep dep, int color) { /* */
    default:;
    }
 
-   jeu [dep.ligDeb][dep.colDeb]  = VOID;
-   if ((dep.promotion != VOID) && (abs (dep.piece == PAWN))) 
+   jeu [dep.ligDeb][dep.colDeb]  = 0;
+   if ((dep.promotion != 0) && (abs (dep.piece == PAWN))) 
       jeu [dep.ligArr][dep.colArr] = dep.piece * dep.promotion;
    else jeu [dep.ligArr][dep.colArr] = dep.piece;
    return true;
@@ -199,7 +199,7 @@ bool automaton (char *depAlg, struct sdep *dep, int color) { /* */
    dep->piece = PAWN * color;
    dep->petitRoque = false;
    dep->grandRoque = false;
-   dep->promotion = VOID;
+   dep->promotion = 0;
    dep->prise = '-';
    dep->echec = '-';
    if (strncmp (depAlg, "O-O-O", 5) == 0) {
@@ -284,7 +284,7 @@ bool dumpLine (TGAME jeu, int l, int cx, int cy) { /* */
    int deb = (cx < cy) ? cx : cy;
    int fin = (cx < cy) ? cy : cx;
    for (int i = (deb + 1); i < fin; i++)
-      if (jeu [l][i] != VOID) return false;
+      if (jeu [l][i] != 0) return false;
    return true;
 }
 
@@ -293,7 +293,7 @@ bool dumpColumn (TGAME jeu, int c, int lx, int ly) { /* */
    int deb = (lx < ly) ? lx : ly;
    int fin = (lx < ly) ? ly : lx;
    for (int i = deb + 1; i < fin; i ++)
-      if (jeu [i][c] != VOID) return false;
+      if (jeu [i][c] != 0) return false;
    return true;
 }
    
@@ -478,7 +478,7 @@ void sprintDep (struct sdep dep, char *chDep) { /* */
    else if (dep.grandRoque) sprintf (chDep, "O-O-O");
       else sprintf (chDep,"%c%c%d%c%c%d", 
            dico [abs(dep.piece)], dep.colDeb + 'a', dep.ligDeb+1, dep.prise, dep.colArr + 'a', dep.ligArr+1);
-   if (dep.promotion != VOID) sprintf (chDep, "%s=%c", chDep, dico [abs(dep.promotion)]);
+   if (dep.promotion != 0) sprintf (chDep, "%s=%c", chDep, dico [abs(dep.promotion)]);
    if (dep.echec != '-') sprintf (chDep, "%s%c", chDep, dep.echec);
 }
 
