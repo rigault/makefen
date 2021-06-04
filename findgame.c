@@ -1,17 +1,17 @@
 /* trouve le jeu no dans le fichier PGN */
 /* ./findgame fileName no */
 
+#include <ctype.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
-#include <stdbool.h>
 
 #define MOTIF1 "[Event"
 #define MOTIF2 "1."
 #define MAXLEN 10000
 
-
+/*! lit le fichier fe et cherche le jeu nCible qui est envoye sur la sortie standart */
 bool findName (FILE *fe, int nCible) { /* */
    char line [MAXLEN];
    int n = 1;
@@ -46,6 +46,9 @@ bool findName (FILE *fe, int nCible) { /* */
    return true;
 }
 
+/*! Programme prinipal. Lit les deux parametres d'entree 
+ * \li nom du fichier PGN
+ * \li numero du jeu */
 int main (int argc, char *argv []) {
    FILE *fe;
    if (argc != 3) {

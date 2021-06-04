@@ -1,31 +1,35 @@
-/* Traduit un fichier nom au format PGN en deux fichier au format FEN */
-/* nom.b.fen pour les noirs (black) */
-/* nom.w.fen pour les blancs (white) */
-/* ./PGNtoFEN [-f] [-p] sourceFile [destFile] */
-/* ne gere pas en passant */
+/*! \mainpage Traduit un fichier au format PGN en deux fichiers au format FEN
+ * \li Synopsys: ./PGNtoFEN [-f] [-p] sourceFile [destFile] 
+ * \li -f PGN en Français sinon en anglais
+ * \li -p affiche l'echiquer a la console
+ * \li si destfile absent sortie standard
+ * \li destFile.b.fen pour les noirs (black)
+ * \li destFile.w.fen pour les blancs (white)
+ * \li ne gere pas en passant */
 
+#include <ctype.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
-#include <ctype.h>
+
+#include "vt100.h"
+
 #define N 8
 #define NTRUNC 1000
-#define MAXTURN 8 // 
-
+#define MAXTURN 8
 #define DEPART "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
 #define MAXLIG 10000          // ligne
 #define NIL -1
-#include "vt100.h"
 
 enum {VOID, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, CASTLEKING};
-enum {ENGLISH, FRENCH} lang;
-const char *unicode [] = {" ", "♟", "♞", "♝", "♜", "♛", "♚", "♚"};
-char dico  [] = {'-', 'P', 'N', 'B', 'R', 'Q', 'K', 'K'};
-char dicoF [] = {'-', 'P', 'C', 'F', 'T', 'D', 'R', 'R'};
-FILE *fsw, *fsb; 
+static enum {ENGLISH, FRENCH} lang;
+static const char *UNICODE [] = {" ", "♟", "♞", "♝", "♜", "♛", "♚", "♚"};
+static const char DICO  [] = {'-', 'P', 'N', 'B', 'R', 'Q', 'K', 'K'};
+static const char DICOF [] = {'-', 'P', 'C', 'F', 'T', 'D', 'R', 'R'};
+static FILE *fsw, *fsb; 
 
-struct sdep {
+struct Sdep {
    int piece;
    bool petitRoque;
    bool grandRoque;
@@ -38,23 +42,23 @@ struct sdep {
    char echec; // + #
 };
 
-typedef char TGAME [N][N];
+typedef char tGame_t [N][N];
 
-int charToInt (int c, int lang) { /* */
-   /* traduit la piece au format caractere en nombre entier */
+/*! traduit la piece au format caractere en nombre entier */
+static int charToInt (int c, int lang) { /* */
    int signe = islower (c) ? 1 : -1;
-   for (unsigned int i = 0; i < sizeof (dico); i++)
+   for (unsigned int i = 0; i < sizeof (DICO); i++)
       if (lang == FRENCH) {
-         if (toupper (c) == dicoF [i]) return signe * i;
+         if (toupper (c) == DICOF [i]) return signe * i;
       }
       else {
-         if (toupper (c) == dico [i]) return signe * i;
+         if (toupper (c) == DICO [i]) return signe * i;
       }
    return NIL;
 }
 
-void printGame (TGAME jeu, int eval) { /* */
-   /* imprime le jeu a la console pour option -p */
+/*! imprime le jeu a la console pour option -p */
+static void printGame (tGame_t jeu, int eval) { /* */
    int v;
    bool normal = true;
    for (int c = 'a'; c <= 'h'; c++) printf (" %c ", c);
@@ -64,7 +68,7 @@ void printGame (TGAME jeu, int eval) { /* */
          printf ("%s", (normal ? BG_CYAN : BG_BLACK));
          normal =! normal; 
          v = jeu [l][c];
-         printf ("%s %s %s",  (v > 0) ? C_RED : C_WHITE, unicode [abs (v)], DEFAULT_COLOR);
+         printf ("%s %s %s",  (v > 0) ? C_RED : C_WHITE, UNICODE [abs (v)], DEFAULT_COLOR);
       }
       printf ("  %d\n", l+1);
       normal =! normal; 
@@ -72,15 +76,15 @@ void printGame (TGAME jeu, int eval) { /* */
    printf ("%s\n", NORMAL);
 }
 
-void gameToFen (TGAME jeu, char *sFen, int color) { /* */
-   /* Forsyth–Edwards Notation */
-   /* le jeu est envoye sous la forme d'une chaine de caracteres au format FEN */
+/*! le jeu est envoye sous la forme d'une chaine de caracteres au format FEN
+  * Forsyth–Edwards Notation */
+static void gameToFen (tGame_t jeu, char *sFen, int color) { /* */
    int n, v;
    int i = 0;
    for (int l = N-1; l >=  0; l--) {
       for (int c = 0; c < N; c++) {
          if ((v = jeu [l][c]) != 0) {
-            sFen [i++] = (v >= 0) ? tolower (dico [v]) : dico [-v];
+            sFen [i++] = (v >= 0) ? tolower (DICO [v]) : DICO [-v];
          }
          else {
             for (n = 0; (c+n < N) && (jeu [l][c+n] == 0); n++);
@@ -95,10 +99,10 @@ void gameToFen (TGAME jeu, char *sFen, int color) { /* */
    strcat (sFen, (color == 1) ? " b " : " w ");
 }
 
-void fenToGame (char *sFen, TGAME jeu) { /* */
-   /* Forsyth–Edwards Notation */
-   /* le jeu est recu sous la forme d'une chaine de caracteres */
-   /* fenToGame traduit cette chaine et renvoie l'objet jeu */
+/*! le jeu est recu sous la forme d'une chaine de caracteres
+  * fenToGame traduit cette chaine et renvoie l'objet jeu
+  * Forsyth–Edwards Notation */
+static void fenToGame (const char *sFen, tGame_t jeu) { /* */
    int l = 7, c = 0;
    char car;
    for (unsigned i = 0; i < strlen (sFen) ; i++) {
@@ -122,9 +126,9 @@ void fenToGame (char *sFen, TGAME jeu) { /* */
    }
 }
 
-bool move (TGAME jeu, struct sdep dep, int color) { /* */
-   /* modifie jeu avec le deplacement dep */
-   /* renvoie faux si le deplacement est manifestement incorrect - controle coherece */
+/*! modifie jeu avec le deplacement dep
+ * renvoie faux si le deplacement est manifestement incorrect - controle coherece */
+static bool move (tGame_t jeu, struct Sdep dep, int color) { /* */
    int base = (color == -1) ? 0 : 7;
    bool diagDiff = abs (dep.ligArr-dep.ligDeb) != abs (dep.colArr - dep.colDeb); // diag differentes
    bool colLigDiff = (dep.colArr != dep.colDeb && dep.ligArr != dep.ligDeb); // col ou lig differentes
@@ -186,9 +190,9 @@ bool move (TGAME jeu, struct sdep dep, int color) { /* */
    return true;
 }
 
-bool automaton (char *depAlg, struct sdep *dep, int color) { /* */
-   /* traduit la chaine decrivant un deplacement au format algebrique */
-   /* en structure sDep */
+/*! Traduit la chaine decrivant un deplacement au format algebrique
+ * en structure sDep */
+static bool automaton (const char *depAlg, struct Sdep *dep, int color) { /* */
    int etat = 0;
    int sauveEtat = 0;
    int k = 0;
@@ -258,9 +262,9 @@ bool automaton (char *depAlg, struct sdep *dep, int color) { /* */
    return (etat >= 6);
 }
 
-bool find (TGAME jeu, int piece, int *l1, int *c1, int *l2, int *c2) { /* */
-   /* coordonnées de la piece ou des deux pieces identiques dont l'ID est passée en argument */
-   /* renvoie vrai si au moins une piece trouvee */
+/*! coordonnées de la piece ou des deux pieces identiques dont l'ID est passée en argument
+  * renvoie vrai si au moins une piece trouvee */
+static  bool find (tGame_t jeu, int piece, int *l1, int *c1, int *l2, int *c2) { /* */
    bool trouve = false;
    for (int l = 0; l < N; l++) {
       for (int c = 0; c < N; c++) {
@@ -279,8 +283,8 @@ bool find (TGAME jeu, int piece, int *l1, int *c1, int *l2, int *c2) { /* */
    return trouve;
 }
 
-bool dumpLine (TGAME jeu, int l, int cx, int cy) { /* */
-   /* vrai si toutes les cases de la ligne l entre colonnes cx et cy sont vides */
+/*! vrai si toutes les cases de la ligne l entre colonnes cx et cy sont vides */
+static bool dumpLine (tGame_t jeu, int l, int cx, int cy) { /* */
    int deb = (cx < cy) ? cx : cy;
    int fin = (cx < cy) ? cy : cx;
    for (int i = (deb + 1); i < fin; i++)
@@ -288,8 +292,8 @@ bool dumpLine (TGAME jeu, int l, int cx, int cy) { /* */
    return true;
 }
 
-bool dumpColumn (TGAME jeu, int c, int lx, int ly) { /* */
-   /* vrai si toutes les cases de la colonne c  entre ligne lx et ly sont vide */
+/*! vrai si toutes les cases de la colonne c  entre ligne lx et ly sont vide */
+static bool dumpColumn (tGame_t jeu, int c, int lx, int ly) { /* */
    int deb = (lx < ly) ? lx : ly;
    int fin = (lx < ly) ? ly : lx;
    for (int i = deb + 1; i < fin; i ++)
@@ -297,8 +301,8 @@ bool dumpColumn (TGAME jeu, int c, int lx, int ly) { /* */
    return true;
 }
    
-bool pawnProcess (TGAME jeu, struct sdep *dep) { /* */
-   /*  complete la structure dep en ajoutant l'origine si implicite; Cas du pion */
+/*!  complete la structure dep en ajoutant l'origine si implicite; Cas du pion */
+static bool pawnProcess (tGame_t jeu, struct Sdep *dep) { /* */
    int color = dep->piece; //-1 white, 1: black
    if (dep->prise != 'x') { // pas de prise
       // printf ("colDep %d  ligDep %d colArr %d ligArr %d\n", dep->colDeb, dep->ligDeb, dep->colArr, dep->ligArr);
@@ -338,9 +342,9 @@ bool pawnProcess (TGAME jeu, struct sdep *dep) { /* */
    return true;
 }
    
-bool complete (TGAME jeu, struct sdep *dep) { /* */
-   /* complete la structure dep en ajoutant l'origine definie par */
-   /* dep-> colDeb et dep->colArr si implicite */
+/*! complete la structure dep en ajoutant l'origine definie par
+  * dep-> colDeb et dep->colArr si implicite */
+static bool complete (tGame_t jeu, struct Sdep *dep) { /* */
    int l1, c1, l2, c2;
    l2 = -1;
    
@@ -451,9 +455,9 @@ bool complete (TGAME jeu, struct sdep *dep) { /* */
    return false;
 }
 
-bool syncBegin (FILE *fe, char* sComment) { /* */
-   /* va a la premiere description de deplacement */
-   /* enregistre dans sComment la section commentaires PGN */
+/*! va a la premiere description de deplacement
+  * enregistre dans sComment la section commentaires PGN */
+static bool syncBegin (FILE *fe, char* sComment) { /* */
    char car1, car2;
    int i = 0;
    while (((car1 = fgetc (fe)) != EOF) && (car1 != '['));
@@ -472,18 +476,18 @@ bool syncBegin (FILE *fe, char* sComment) { /* */
    return false;
 }
 
-void sprintDep (struct sdep dep, char *chDep) { /* */
-   /* conversion struct en chaine algebrique complete */
+/*! conversion struct en chaine algebrique complete */
+static void sprintDep (struct Sdep dep, char *chDep) { /* */
    if (dep.petitRoque) sprintf (chDep, "O-O");
    else if (dep.grandRoque) sprintf (chDep, "O-O-O");
       else sprintf (chDep,"%c%c%d%c%c%d", 
-           dico [abs(dep.piece)], dep.colDeb + 'a', dep.ligDeb+1, dep.prise, dep.colArr + 'a', dep.ligArr+1);
-   if (dep.promotion != 0) sprintf (chDep, "%s=%c", chDep, dico [abs(dep.promotion)]);
+           DICO [abs(dep.piece)], dep.colDeb + 'a', dep.ligDeb+1, dep.prise, dep.colArr + 'a', dep.ligArr+1);
+   if (dep.promotion != 0) sprintf (chDep, "%s=%c", chDep, DICO [abs(dep.promotion)]);
    if (dep.echec != '-') sprintf (chDep, "%s%c", chDep, dep.echec);
 }
 
-bool isEnd (char *chDep) { /* */
-   /* vrai si chDep correspond a la descroption de fin de partie */
+/*! vrai si chDep correspond a la descroption de fin de partie */
+static bool isEnd (const char *chDep) { /* */
    if (strncmp (chDep, "1/2-1/2", 7) == 0) return true; // nul
    if (strncmp (chDep, "1-0", 3) == 0) return true; // les blancs gagnent
    if (strncmp (chDep, "0-1", 3) == 0) return true; // les noirs gagnent
@@ -491,9 +495,9 @@ bool isEnd (char *chDep) { /* */
    return false;
 }
 
-bool sequence (TGAME jeu, char *depAlg, int color, char *sComment) { /* */
-   /* execute la sequence de deplacement sur jeu */
-   struct sdep dep;
+/*! execute la sequence de deplacement sur jeu */
+static bool sequence (tGame_t jeu, char *depAlg, int color, char *sComment) { /* */
+   struct Sdep dep;
    char sFEN [MAXLIG];
    char line [MAXLIG];
    if (! automaton (depAlg, &dep, color)) {
@@ -512,16 +516,17 @@ bool sequence (TGAME jeu, char *depAlg, int color, char *sComment) { /* */
    return false;
 }
 
-int main (int argc, char *argv []) {
-   /* -p : affiche le jeu a la console en format convivial. Sinon english */
-   /* le fichier entree est au forlat PGN */
-   /* si un nom de fichier dest est fourni, production de deux fichiers fen */
-   /* .b.fen pour les noirs .w.fen pour les blancs */
- 
+/*! Programme principal. Lit la line de commande 
+ * \li -p : affiche le jeu a la console en format convivial. 
+ * \li -f : notation PGN en franais. Sinon english
+ * \li le fichier entree est au forlat PGN
+ * \li si un nom de fichier dest est fourni, production de deux fichiers fen
+ * \li .b.fen pour les noirs .w.fen pour les blancs */
+int main (int argc, const char *argv []) { /* */
    char sComment [MAXLIG];
    char game [MAXLIG];
    char fileName [MAXLIG];
-   TGAME jeu;
+   tGame_t jeu;
    int n, indexSource = 1, nTour, nGame = 0;
    char depAlg1 [20];
    char depAlg2 [20];

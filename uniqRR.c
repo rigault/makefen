@@ -3,15 +3,19 @@
 /* ce premier champ est delimite par le separateur SEP */
 /* ./uniqRR fileName */
 
+#include <ctype.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
-#include <stdbool.h>
 
 #define SEP ";"
 #define MAXLEN 10000
 
+/*! Lit le fichier fe et envoie sur la sortie standart le fichier resultat
+ * \li elimination des lignes equivalentes 
+ * \li chaque ligne est au format CSV avec le separateur sep
+ * \li deux lignes sont egales si le premier champ est le meme */
 bool uniq (FILE *fe, const char *sep) { /* */
    char line1 [MAXLEN];
    char line2 [MAXLEN];
@@ -35,7 +39,8 @@ bool uniq (FILE *fe, const char *sep) { /* */
    return true;
 }
 
-int main (int argc, char *argv []) {
+/*! Programme principal. Lit la commande contenant en parametre le nom du fichier a traiter */
+int main (int argc, const char *argv []) {
    FILE *fe;
    if (argc != 2) {
       fprintf (stderr, "Usage: %s <filename>\n", argv [0]);
