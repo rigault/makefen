@@ -7,40 +7,26 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MOTIF1 "[Event"
-#define MOTIF2 "1."
+#define MOTIF "[Event"
 #define MAX_LENGTH 10000
 
 /*! lit le fichier fe et cherche le jeu nCible qui est envoye sur la sortie standart */
-bool findName (FILE *fe, int nCible) { /* */
-   char line [MAX_LENGTH];
+static bool findName (FILE *fe, int nCible) { /* */
+   char lastLine [MAX_LENGTH] = "";
+   char line [MAX_LENGTH] = "";
    int n = 1;
 
-   // on passe les n-1 jeux sans imprimer
-   while ((n <= nCible - 1) && (fgets (line, MAX_LENGTH, fe) != NULL)) {
-      if (strncmp (line, MOTIF2, strlen (MOTIF2)) == 0) n += 1;
-   }
-   if ((n <= nCible -1) || feof (fe)) {
-      printf ("There are: %d games, the target was: %d.\n", n, nCible);
-      return false;
-   }
-
-   // on recherche MOTIF1 sans imprimer
-   while (fgets (line, MAX_LENGTH, fe) != NULL) {
-      if (strncmp (line, MOTIF1, strlen (MOTIF1)) == 0) break;
+   // on recherche MOTIF sans imprimer
+   while (fgets (line, MAX_LENGTH, fe) != NULL && n <= nCible) {
+      strcpy (lastLine, line);
+      if (strncmp (line, MOTIF, strlen (MOTIF)) == 0) n += 1;
    }
    if (feof (fe)) return false;
-   // on imprime a partir de MOTIF 1 jqa MOTIF 2
-   printf ("#%d\n%s", n, line);
-   while ((fgets (line, MAX_LENGTH, fe) != NULL)) {
-      if (strncmp (line, MOTIF2, strlen (MOTIF2)) == 0) break;
-      else printf ("%s", line);
-   }
-   if (feof (fe)) return false;
-   // on imprime de MOTIF 2 jqa MOTIF 1
+   // on jqa MOTIF 
+   printf ("#%d\n%s", n - 1, lastLine);
    printf ("%s",line);
    while ((fgets (line, MAX_LENGTH, fe) != NULL)) {
-      if (strncmp (line, MOTIF1, strlen (MOTIF1)) == 0) break;
+      if (strncmp (line, MOTIF, strlen (MOTIF)) == 0) break;
       else printf ("%s", line);
    }
    return true;
@@ -49,7 +35,7 @@ bool findName (FILE *fe, int nCible) { /* */
 /*! Programme prinipal. Lit les deux parametres d'entree 
  * \li nom du fichier PGN
  * \li numero du jeu */
-int main (int argc, char *argv []) {
+int main (int argc, const char *argv []) {
    FILE *fe;
    if (argc != 3) {
       fprintf (stderr, "Usage: %s <filename> <n>\n", argv [0]);
@@ -60,4 +46,5 @@ int main (int argc, char *argv []) {
       exit (EXIT_FAILURE);
    }
    findName (fe, atoi (argv [2]));
+   fclose (fe);
 }

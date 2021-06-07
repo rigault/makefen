@@ -2,6 +2,7 @@
 /* deux lignes sont considerees equivalentes si le premier champ est egal */
 /* ce premier champ est delimite par le separateur SEP */
 /* ./uniqRR fileName */
+/* equivalent a : sort -u -t ";" -k 1,1 fileName ???
 
 #include <ctype.h>
 #include <stdbool.h>
