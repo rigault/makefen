@@ -9,15 +9,15 @@
 
 #define MOTIF1 "[Event"
 #define MOTIF2 "1."
-#define MAXLEN 10000
+#define MAX_LENGTH 10000
 
 /*! lit le fichier fe et cherche le jeu nCible qui est envoye sur la sortie standart */
 bool findName (FILE *fe, int nCible) { /* */
-   char line [MAXLEN];
+   char line [MAX_LENGTH];
    int n = 1;
 
    // on passe les n-1 jeux sans imprimer
-   while ((n <= nCible - 1) && (fgets (line, MAXLEN, fe) != NULL)) {
+   while ((n <= nCible - 1) && (fgets (line, MAX_LENGTH, fe) != NULL)) {
       if (strncmp (line, MOTIF2, strlen (MOTIF2)) == 0) n += 1;
    }
    if ((n <= nCible -1) || feof (fe)) {
@@ -26,20 +26,20 @@ bool findName (FILE *fe, int nCible) { /* */
    }
 
    // on recherche MOTIF1 sans imprimer
-   while (fgets (line, MAXLEN, fe) != NULL) {
+   while (fgets (line, MAX_LENGTH, fe) != NULL) {
       if (strncmp (line, MOTIF1, strlen (MOTIF1)) == 0) break;
    }
    if (feof (fe)) return false;
    // on imprime a partir de MOTIF 1 jqa MOTIF 2
    printf ("#%d\n%s", n, line);
-   while ((fgets (line, MAXLEN, fe) != NULL)) {
+   while ((fgets (line, MAX_LENGTH, fe) != NULL)) {
       if (strncmp (line, MOTIF2, strlen (MOTIF2)) == 0) break;
       else printf ("%s", line);
    }
    if (feof (fe)) return false;
    // on imprime de MOTIF 2 jqa MOTIF 1
    printf ("%s",line);
-   while ((fgets (line, MAXLEN, fe) != NULL)) {
+   while ((fgets (line, MAX_LENGTH, fe) != NULL)) {
       if (strncmp (line, MOTIF1, strlen (MOTIF1)) == 0) break;
       else printf ("%s", line);
    }

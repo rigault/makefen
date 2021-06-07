@@ -16,11 +16,10 @@
 #include "vt100.h"
 
 #define N 8
-#define NTRUNC 1000
-#define MAXTURN 8
-#define DEPART "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
-#define MAXLIG 10000          // ligne
-#define NIL -1
+#define N_TRUNC 1000
+#define MAX_TRUNC 8
+#define DEPARTURE "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
+#define MAX_LIG 10000         // ligne
 
 enum {VOID, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, CASTLEKING};
 static enum {ENGLISH, FRENCH} lang;
@@ -54,7 +53,7 @@ static int charToInt (int c, int lang) { /* */
       else {
          if (toupper (c) == DICO [i]) return signe * i;
       }
-   return NIL;
+   return 0;
 }
 
 /*! imprime le jeu a la console pour option -p */
@@ -467,7 +466,7 @@ static bool syncBegin (FILE *fe, char* sComment) { /* */
       if (((car2 = fgetc (fe))) == EOF) return false; 
       if (car1 == '\n' && car2 == '1') {
          sComment [i] = '\0';
-         sComment [NTRUNC] = '\0';
+         sComment [N_TRUNC] = '\0';
          return true;
       }
       car1 = car2;
@@ -498,8 +497,8 @@ static bool isEnd (const char *chDep) { /* */
 /*! execute la sequence de deplacement sur jeu */
 static bool sequence (tGame_t jeu, char *depAlg, int color, char *sComment) { /* */
    struct Sdep dep;
-   char sFEN [MAXLIG];
-   char line [MAXLIG];
+   char sFEN [MAX_LIG];
+   char line [MAX_LIG];
    if (! automaton (depAlg, &dep, color)) {
       fprintf (stderr, "Error: Automaton in %s\n", depAlg);
       return false;
@@ -508,7 +507,7 @@ static bool sequence (tGame_t jeu, char *depAlg, int color, char *sComment) { /*
    sprintDep (dep, depAlg);
    gameToFen (jeu, sFEN, color);
    sprintf (line, "%s;%s; %s", sFEN, depAlg, sComment);
-   line [NTRUNC] = '\0';
+   line [N_TRUNC] = '\0';
    if (color == -1) fprintf (fsw, "%s\n", line);
    else  fprintf (fsb, "%s\n", line);
    if (move (jeu, dep, color)) return true;
@@ -523,9 +522,9 @@ static bool sequence (tGame_t jeu, char *depAlg, int color, char *sComment) { /*
  * \li si un nom de fichier dest est fourni, production de deux fichiers fen
  * \li .b.fen pour les noirs .w.fen pour les blancs */
 int main (int argc, const char *argv []) { /* */
-   char sComment [MAXLIG];
-   char game [MAXLIG];
-   char fileName [MAXLIG];
+   char sComment [MAX_LIG];
+   char game [MAX_LIG];
+   char fileName [MAX_LIG];
    tGame_t jeu;
    int n, indexSource = 1, nTour, nGame = 0;
    char depAlg1 [20];
@@ -566,7 +565,7 @@ int main (int argc, const char *argv []) { /* */
    }
    
    while (!feof (fe)) {
-      fenToGame (DEPART, jeu);
+      fenToGame (DEPARTURE, jeu);
       nGame += 1;
       nTour = 0;
       if (! syncBegin (fe, game)) {
@@ -579,7 +578,7 @@ int main (int argc, const char *argv []) { /* */
             exit (EXIT_SUCCESS);
          }
       }
-      game [NTRUNC] = '\0';
+      game [N_TRUNC] = '\0';
       printf ("\n%s# %d %s%s\n", C_RED, nGame, game, NORMAL);
       normal = true; 
       do {
@@ -598,7 +597,7 @@ int main (int argc, const char *argv []) { /* */
             break;
          }
          if (play) printGame (jeu, 0);
-      } while (normal && nTour < MAXTURN && fscanf (fe, "%d.%s %s", &n, depAlg1, depAlg2) == 3);
+      } while (normal && nTour < MAX_TRUNC && fscanf (fe, "%d.%s %s", &n, depAlg1, depAlg2) == 3);
       fprintf (stderr, "%sFile: %s, Game: %d, Change: %d\n", (normal) ? "OK " : "Error: ", argv [indexSource], nGame, nTour);
    }
    fclose (fe);

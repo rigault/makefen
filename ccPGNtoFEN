@@ -1,0 +1,2 @@
+#!/bin/bash
+gcc -Wall -Wextra -pedantic -std=c11 PGNtoFEN.c -o PGNtoFEN

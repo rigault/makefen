@@ -10,24 +10,24 @@
 #include <string.h>
 
 #define SEP ";"
-#define MAXLEN 10000
+#define MAX_LENGTH 10000
 
 /*! Lit le fichier fe et envoie sur la sortie standart le fichier resultat
  * \li elimination des lignes equivalentes 
  * \li chaque ligne est au format CSV avec le separateur sep
  * \li deux lignes sont egales si le premier champ est le meme */
-bool uniq (FILE *fe, const char *sep) { /* */
-   char line1 [MAXLEN];
-   char line2 [MAXLEN];
-   char lineSave1 [MAXLEN];
-   char lineSave2 [MAXLEN];
+static void uniq (FILE *fe, const char *sep) { /* */
+   char line1 [MAX_LENGTH];
+   char line2 [MAX_LENGTH];
+   char lineSave1 [MAX_LENGTH];
+   char lineSave2 [MAX_LENGTH];
    char *first1, *first2;
 
-   if (fgets (line1, MAXLEN, fe) == NULL) return false;
+   if (fgets (line1, MAX_LENGTH, fe) == NULL) return;
    strcpy (lineSave1, line1);
-   if ((first1 = strtok (line1, sep)) == NULL) return true;
+   if ((first1 = strtok (line1, sep)) == NULL) return;
    
-   while (fgets (line2, MAXLEN, fe) != NULL) {
+   while (fgets (line2, MAX_LENGTH, fe) != NULL) {
       strcpy (lineSave2, line2);
       if ((first2 = strtok (line2, sep)) == NULL) break;
       if (strcmp (first1, first2) != 0) printf ("%s", lineSave1);
@@ -36,7 +36,6 @@ bool uniq (FILE *fe, const char *sep) { /* */
       first1 = strtok (line1, sep);
    }
    printf ("%s", lineSave2);
-   return true;
 }
 
 /*! Programme principal. Lit la commande contenant en parametre le nom du fichier a traiter */
